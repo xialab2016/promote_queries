@@ -272,7 +272,7 @@ sd(test$Freq)
 ##Histogram of all pdds scores
 ```{r}
 #Export list of all pdds scores
-#write.csv(pdds_all, "/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Data Desc Queries/PDDS_Query/pdds_all.csv")
+#write.csv(pdds_all, "pdds_all.csv")
 
 mean(pdds_all$score) #mean score of 2.04
 sd(pdds_all$score) #sd of 2.17
@@ -333,7 +333,7 @@ ggplot(most_recent3, aes(score)) +
     labs(title = "Most Recent PDDS Scores") + theme(plot.title = element_text(hjust = 0.5)) + xlab("PDDS Score") + ylab("# of Scores")
 
 #Export list of recent pdds scores
-#write.csv(most_recent3, "/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Data Desc Queries/PDDS_Query/pdds_recent.csv")
+#write.csv(most_recent3, "pdds_recent.csv")
 
 
 ```
@@ -372,7 +372,7 @@ ggplot(earliest3, aes(score)) +
     theme(plot.title = element_text(hjust = 0.5)) + xlab("PDDS Score") + ylab("Number of Participants") + theme(axis.title.x = element_text(margin = margin(t = 15)), axis.title.y = element_text(margin = margin(r=15)))
 
 #Export list of earliest pdds scores
-#write.csv(earliest3, "/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Data Desc Queries/PDDS_Query/pdds_earliest.csv")
+#write.csv(earliest3, "pdds_earliest.csv")
 
 
 ```
@@ -465,6 +465,4 @@ write.csv(edss, "edss_all.csv")
 hist(edss$edss_score)
 
 ```
-
-
 
