@@ -25,6 +25,16 @@ Descriptive statistics of the PROMOTE cohort including age, sex, race, ethnicity
 
 # Patient-reported outcome questionnaires
 
+1. Patient-determined disease steps (PDDS)
+
+   Version 1: 2024-03-21
+
+   Finds PDDS values and median scores per year for all PROMOTE participants and EDSS values stored in the PROMOTEDatabase.
+
+   Input: PROMOTEDatabase, PROMOTE Longitudinal, Legacy, Missing IDs, Legacy SNQ, sensor, covid, vaccine, pre/pro.
+
+   Output: Histogram of all PDDS scores, earliest PDDS scores, and most recent PDDS scores. CSV files of all PDDS scores, earliest PDDS scores, most recent PDDS scores, median PDDS score, and all EDSS scores.
+   
 
 # DMT / relapse queries
 
