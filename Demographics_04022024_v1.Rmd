@@ -23,7 +23,7 @@ library(gtsummary)
 
 #Import files
 ```{r}
-#setwd("your_working_directory")
+setwd("your_working_directory")
 
 database <- read.csv("database.csv") #Export of the whole database project
 database <- database %>% filter(str_detect(id_participant, "PRT"))
