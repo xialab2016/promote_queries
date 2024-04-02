@@ -34,7 +34,16 @@ Descriptive statistics of the PROMOTE cohort including age, sex, race, ethnicity
    Input: PROMOTEDatabase, PROMOTE Longitudinal, Legacy, Missing IDs, Legacy SNQ, sensor, covid, vaccine, pre/pro.
 
    Output: Histogram of all PDDS scores, earliest PDDS scores, and most recent PDDS scores. CSV files of all PDDS scores, earliest PDDS scores, most recent PDDS scores, median PDDS score, and all EDSS scores.
-   
+
+2. Bladder Control Scale (BLCS) & Bowel Control Scale (BWCS)
+
+   Version 1: 2024-04-02
+
+   Finds all BLCS & BWCS measure scores for the PROMOTE Study
+
+   Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers, Pre/Pro
+
+   Output: Histogram of all total BLCS scores, histogram of all total BWCS scores. CSV files of all BLCS scores, CSV file of all BWCS scores.
 
 # DMT / relapse queries
 
