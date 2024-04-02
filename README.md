@@ -24,8 +24,17 @@ Output: Table 1 demographics of entire PROMOTE cohort, CSV file with demographic
 2. Plasma
 3. PBMC
 4. DNA
-5. Stool
-6. Cerebrospinal fluid (CSF)
+
+   Version 1: 2024-04-02
+
+   Finds list of participants with DNA sample and their demographics
+
+   Input: PROMOTEDatabase, Genomic data attained participant list
+
+   Output: Table of demographic summary for all PROMOTE participants with a DNA sample, CSV file containing all participants with DNA sample and their demographics
+   
+6. Stool
+7. Cerebrospinal fluid (CSF)
 
    Version 1: 2024-04-02
 
