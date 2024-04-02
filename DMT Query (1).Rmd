@@ -1,0 +1,1027 @@
+---
+title: "DMT Query"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(tidyr)
+library(gtsummary)
+
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+
+#Finds list of all DMTs taken for all PROMOTE participants
+
+#Files used: PROMOTEDatabase, PROMOTE Longitudinal, Legacy, Missing IDs, Legacy SNQ, sensor, covid, vaccine, pre/pro
+
+#CHANGE FILE PATHS
+
+```
+
+#Import files
+```{r}
+database <- read.csv("Database.csv") #Export of the whole database project
+database <- database %>% filter(str_detect(id_participant, "PRT"))
+database <- database %>% filter(!str_detect(id_participant, "_x"))
+
+long1 <- read.csv("long1.csv") 
+long2 <- read.csv("long2.csv") 
+long <- rbind(long1, long2)
+longitudinal <- long #Combined longitudinal projects
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+sensor <- read.csv("Sensor.csv") #Export of the whole sensor project
+
+covid <- read.csv("covid_long.csv") #Export of the whole original covid project
+
+vaccine <- read.csv("Vaccine_long.csv") #Export of the while covid vaccine project
+
+prepro <- read.csv("PrePro.csv") #Export of the whole pre/probiotic project
+
+pasc <-  read.csv("PASC.csv") #Export of the whole pasc project
+pasc <- pasc %>% filter(str_detect(id_participant, "PRT"))
+
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+```
+
+#EHR
+```{r}
+#Database history
+dmt_hx <- database[,c("id_participant", "dmt_number", "dmt_first", "dmt_first_start", "dmt_first_end", "dmt_second", "dmt_second_start", "dmt_second_end", "dmt_third", "dmt_third_start", "dmt_third_end", "dmt_fourth", "dmt_fourth_start", "dmt_fourth_end", "dmt_fifth", "dmt_fifth_start", "dmt_fifth_end", "dmt_sixth", "dmt_sixth_start", "dmt_sixth_end", "dmt_seventh", "dmt_seventh_start", "dmt_seventh_end", "dmt_eighth", "dmt_eighth_start", "dmt_eighth_end", "dmt_ninth", "dmt_ninth_start", "dmt_ninth_end", "dmt_tenth", "dmt_tenth_start", "dmt_tenth_end")]
+dmt_hx <- dmt_hx %>% filter(!is.na(dmt_number))
+
+dmt_hxType <- dmt_hx %>% gather(typeNumber, type, 3,6,9,12,15,18,21,24,27,30)
+dmt_hxType <- dmt_hxType[,c(1,23,24)]
+
+dmt_hxStart <- dmt_hx %>% gather(startNumber, start, 4,7,10,13,16,19,22,25,28,31)
+dmt_hxStart <- dmt_hxStart[,c(1,23,24)]
+
+dmt_hxEnd <- dmt_hx %>% gather(endNumber, end, 5,8,11,14,17,20,23,26,29,32)
+dmt_hxEnd <- dmt_hxEnd[,c(1,23,24)]
+
+dmt_hx2 <- cbind(dmt_hxType, dmt_hxStart, dmt_hxEnd)
+dmt_hx2 <- dmt_hx2[,c("id_participant", "type", "start", "end")]
+dmt_hx2 <- dmt_hx2 %>% filter(!is.na(type))
+dmt_hx2$start <- as.Date(dmt_hx2$start)
+
+dmt_hx2 <- dmt_hx2[order(dmt_hx2$id_participant, dmt_hx2$start), ]
+
+#change labeling here because it's not consistent across databases
+dmt_hx2$type = factor(dmt_hx2$type, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,99), labels = c("Aubagio", "Avonex", "Betaseron", "Copaxone", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada", "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "Kesimpta", "Soliris", "Uplizna", "Enspryng", "Ponvory", "Bafiertam", "None"))
+
+dmt_hx2 <- dmt_hx2 %>%
+  mutate_all(as.character)
+
+#add total number of dmts back into df
+dmt_totalNumber <- dmt_hx[,c("id_participant", "dmt_number")]
+dmt_hx3 <- merge(dmt_hx2, dmt_totalNumber, by = 'id_participant', all.x = TRUE)
+dmt_hx3 <- dmt_hx3[,c("id_participant", "dmt_number", "type", "start", "end")]
+names(dmt_hx3)[2] <- 'total_number_dmts'
+  #export dmt_hx3 for the EHR data extraction project
+dmt_hx_EHR <- dmt_hx3
+# dmt_hx_EHR$type_generic = factor(dmt_hx2$type_brand, levels = c("Aubagio", "Avonex", "Betaseron", "Copaxone", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada", "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "Kesimpta", "Soliris", "Uplizna", "Enspryng", "Ponvory", "Bafiertam", "None"), 
+#                                  labels = c("teriflunomide", "interferon beta-1a", "interferon beta-1b", "glatiramer acetate", "interferon beta-1b", "fingolimod", "mitoxantrone", "interferon beta-1a", "dimethyl fumarate/BG12", "natalizumab", "Other", "alemtuzumab/campath", "ocrelizumab", "pegylated interferon beta-1a", "daclizumab", "rituximab", "cladribine", "siponimod", "diroximel fumarate", "ozanimod", "ofatumumab", "eculizumab", "inebilizumab-cdon", "satralizumab-mwge", "ponesimod", "monomethyl fumarate", "None")) 
+# dmt_hx_EHR <- dmt_hx_EHR[,c("id_participant", "total_number_dmts", "type", "type_brand", "type_generic", "start", "end")]
+# 
+ write.csv(dmt_hx_EHR, "DMTHistory.csv")
+
+
+```
+
+##Enrollment
+```{r}
+dmt_enroll <- database[,c("id_participant", "dmt_current___1", "dmt_current___2", "dmt_current___3", "dmt_current___4", "dmt_current___5", "dmt_current___6", "dmt_current___7", "dmt_current___8", "dmt_current___9", "dmt_current___10", "dmt_current___11", "dmt_current___12", "dmt_current___13", "dmt_current___14", "dmt_current___15", "dmt_current___16", "dmt_current___17", "dmt_current___18", "dmt_current___19", "dmt_current___20", "dmt_current___21", "dmt_current___22", "dmt_current___23", "dmt_current___24", "dmt_current___25", "dmt_current___26", "dmt_current___99", "dmt_start_date")]
+dmt_enroll$dmt_current___1 <- gsub("1", "Aubagio", dmt_enroll$dmt_current___1)
+dmt_enroll$dmt_current___2 <- gsub("1", "Avonex", dmt_enroll$dmt_current___2)
+dmt_enroll$dmt_current___3 <- gsub("1", "Betaseron", dmt_enroll$dmt_current___3)
+dmt_enroll$dmt_current___4 <- gsub("1", "Copaxone", dmt_enroll$dmt_current___4)
+dmt_enroll$dmt_current___5 <- gsub("1", "Extavia", dmt_enroll$dmt_current___5)
+dmt_enroll$dmt_current___6 <- gsub("1", "Gilenya", dmt_enroll$dmt_current___6)
+dmt_enroll$dmt_current___7 <- gsub("1", "Novantrone", dmt_enroll$dmt_current___7)
+dmt_enroll$dmt_current___8 <- gsub("1", "Rebif", dmt_enroll$dmt_current___8)
+dmt_enroll$dmt_current___9 <- gsub("1", "Tecfidera", dmt_enroll$dmt_current___9)
+dmt_enroll$dmt_current___10 <- gsub("1", "Tysabri", dmt_enroll$dmt_current___10)
+dmt_enroll$dmt_current___11 <- gsub("1", "Other", dmt_enroll$dmt_current___11)
+dmt_enroll$dmt_current___12 <- gsub("1", "Lemtrada", dmt_enroll$dmt_current___12)
+dmt_enroll$dmt_current___13 <- gsub("1", "Ocrevus", dmt_enroll$dmt_current___13)
+dmt_enroll$dmt_current___14 <- gsub("1", "Plegridy", dmt_enroll$dmt_current___14)
+dmt_enroll$dmt_current___15 <- gsub("1", "Zinbryta", dmt_enroll$dmt_current___15)
+dmt_enroll$dmt_current___16 <- gsub("1", "Rituxan", dmt_enroll$dmt_current___16)
+dmt_enroll$dmt_current___17 <- gsub("1", "Mavenclad", dmt_enroll$dmt_current___17)
+dmt_enroll$dmt_current___18 <- gsub("1", "Mayzent", dmt_enroll$dmt_current___18)
+dmt_enroll$dmt_current___19 <- gsub("1", "Vumerity", dmt_enroll$dmt_current___19)
+dmt_enroll$dmt_current___20 <- gsub("1", "Zeposia", dmt_enroll$dmt_current___20)
+dmt_enroll$dmt_current___21 <- gsub("1", "Kesimpta", dmt_enroll$dmt_current___21)
+dmt_enroll$dmt_current___22 <- gsub("1", "Soliris", dmt_enroll$dmt_current___22)
+dmt_enroll$dmt_current___23 <- gsub("1", "Uplizna", dmt_enroll$dmt_current___23)
+dmt_enroll$dmt_current___24 <- gsub("1", "Enspryng", dmt_enroll$dmt_current___24)
+dmt_enroll$dmt_current___25 <- gsub("1", "Ponvory", dmt_enroll$dmt_current___25)
+dmt_enroll$dmt_current___26 <- gsub("1", "Bafiertam", dmt_enroll$dmt_current___26)
+dmt_enroll$dmt_current___99 <- gsub("1", "None", dmt_enroll$dmt_current___99)
+dmt_enroll[dmt_enroll == 0] <- NA
+dmt_enroll$type <- apply( dmt_enroll[ , c(2:28) ] , 1 , paste_noNA , sep=sep)
+
+dmt_enroll <- dmt_enroll[,c("id_participant", "type", "dmt_start_date")]
+dmt_enroll[dmt_enroll == ""] <- NA
+dmt_enroll <- dmt_enroll %>% filter(!is.na(type))
+names(dmt_enroll)[3] <- 'start'
+dmt_enroll$end <- NA
+
+```
+
+
+#Blood samples
+```{r}
+dmt_blood <- database[,c("id_participant", "blood1_dmt", "blood1_dmt_detail", "blood_dmt_start_date", "blood1_date")]
+#account for y/n question
+dmt_blood$blood1_dmt_detail <- ifelse(
+    ( 
+        is.na(dmt_blood$blood1_dmt_detail) &
+          dmt_blood$blood1_dmt==0
+    ),
+    dmt_blood$blood1_dmt,  #puts this where conditions are met
+    dmt_blood$blood1_dmt_detail         #puts this where conditions are not met
+)
+dmt_blood <- dmt_blood %>% filter(!is.na(blood1_dmt_detail))
+
+#blood collection date is dmt end date
+names(dmt_blood)[3] <- 'type'
+names(dmt_blood)[4] <- 'start'
+names(dmt_blood)[5] <- 'end'
+dmt_blood <- dmt_blood[,-c(2)]
+
+#change empty start dates to blood collection date
+dmt_blood[dmt_blood == ""] <- NA
+dmt_blood <- dmt_blood %>%
+  mutate_all(as.character)
+dmt_blood$start <- ifelse(
+    ( 
+        is.na(dmt_blood$start)
+    ),
+    dmt_blood$end,  #puts this where conditions are met
+    dmt_blood$start         #puts this where conditions are not met
+)
+
+
+#change labeling here because it's not consistent across databases
+dmt_blood$type = factor(dmt_blood$type, levels = c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,99), labels = c("None", "Aubagio", "Avonex", "Betaseron", "Copaxone", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada", "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "Kesimpta", "Soliris", "Uplizna", "Enspryng", "Ponvory", "Bafiertam", "None"))
+
+```
+
+#Stool samples
+```{r}
+dmt_stool <- database[,c("id_participant", "stool0a_collection_date", "stool0b_collection_date", "collection1a_date", "collection1b_date", "imsms_dmt_detail", "stool_dmt_detail", "stool_dmt_start_date", "stool_dmt")]
+
+#combine stool collection dates for dmt end date
+dmt_stool$end <- apply( dmt_stool[ , c(2:6) ] , 1 , paste_noNA , sep=sep)
+#combine imsms and promote type columns
+dmt_stool$type <- apply( dmt_stool[ , c(7:8) ] , 1 , paste_noNA , sep=sep)
+
+#account for y/n question for promote samples
+dmt_stool[dmt_stool == ""] <- NA
+dmt_stool$type <- ifelse(
+    ( 
+        is.na(dmt_stool$type) &
+          dmt_stool$stool_dmt==0
+    ),
+    dmt_stool$stool_dmt,  #puts this where conditions are met
+    dmt_stool$type         #puts this where conditions are not met
+)
+dmt_stool <- dmt_stool %>% filter(!is.na(type))
+
+dmt_stool <- dmt_stool[,c("id_participant", "type", "stool_dmt_start_date", "end")]
+
+dmt_stool <- dmt_stool %>% filter(!is.na(as.numeric(as.character(dmt_stool$type))))
+dmt_stool$end <- sub("\\,.*", "", dmt_stool$end)
+
+names(dmt_stool)[3] <- 'start'
+
+#change empty start dates to stool collection date
+dmt_stool[dmt_stool == ""] <- NA
+dmt_stool <- dmt_stool %>%
+  mutate_all(as.character)
+dmt_stool$start <- ifelse(
+    ( 
+        is.na(dmt_stool$start)
+    ),
+    dmt_stool$end,  #puts this where conditions are met
+    dmt_stool$start         #puts this where conditions are not met
+)
+
+dmt_stool$type = factor(dmt_stool$type, levels = c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,99), labels = c("None", "Aubagio", "Avonex", "Betaseron", "Copaxone", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada", "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "Kesimpta", "Soliris", "Uplizna", "Enspryng", "Ponvory", "Bafiertam", "None"))
+
+
+```
+
+#CSF samples
+```{r}
+dmt_csf <- database[,c("id_participant", "csf_dmt_type", "csf_date", "csf_dmt")]
+dmt_csf$start <- NA
+
+#account for y/n question for promote samples
+dmt_csf[dmt_csf == ""] <- NA
+dmt_csf$csf_dmt_type <- ifelse(
+    ( 
+        is.na(dmt_csf$csf_dmt_type) &
+          dmt_csf$csf_dmt==0
+    ),
+    dmt_csf$csf_dmt,  #puts this where conditions are met
+    dmt_csf$csf_dmt_type         #puts this where conditions are not met
+)
+dmt_csf <- dmt_csf %>% filter(!is.na(csf_dmt_type))
+
+names(dmt_csf)[2] <- 'type'
+names(dmt_csf)[3] <- 'end'
+dmt_csf <- dmt_csf[,-c(4)]
+
+#change empty start dates to csf collection date
+dmt_csf[dmt_csf == ""] <- NA
+dmt_csf <- dmt_csf %>%
+  mutate_all(as.character)
+dmt_csf$start <- ifelse(
+    ( 
+        is.na(dmt_csf$start)
+    ),
+    dmt_csf$end,  #puts this where conditions are met
+    dmt_csf$start         #puts this where conditions are not met
+)
+
+dmt_csf$type = factor(dmt_csf$type, levels = c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,99), labels = c("None", "Aubagio", "Avonex", "Betaseron", "Copaxone", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada", "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "Kesimpta", "Soliris", "Uplizna", "Enspryng", "Ponvory", "Bafiertam", "None"))
+dmt_csf <- dmt_csf[,c("id_participant", "type", "start", "end")]
+
+```
+
+#SRO Legacy
+##Now
+```{r}
+#NOW
+dmt_legacy_now <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "dmtlist_now___1", "dmtlist_now___2", "dmtlist_now___3", "dmtlist_now___4", "dmtlist_now___5", "dmtlist_now___6", "dmtlist_now___7", "dmtlist_now___8", "dmtlist_now___9", "dmtlist_now___10", "dmtlist_now___11", "dmtlist_now___12", "dmtlist_now___13", "dmtlist_now___14", "dmtlist_now___15", "dmtlist_now___16", "dmt_now_aubagio_start", "dmt_now_avonex_start", "dmt_now_betaseron_start", "dmt_now_copaxone_start", "dmt_now_extavia_start", "dmt_now_gilenya_start", "dmt_now_novantrone_start", "dmt_now_plegridy_start", "dmt_now_rebif_start", "dmt_now_tecfidera_start", "dmt_now_tysabri_start", "dmt_now_other", "dmt_now_rituxan_start", "dmt_now_zinbryta_start", "dmt_now_ocrevus_start", "dmt_now_lemtrada_start", "dmt_now")]
+
+#get rid of all the 0s and switch with NAs
+dmt_legacy_now <- dmt_legacy_now %>% mutate(across(starts_with('dmtlist'), ~replace(., . == 0, NA)))
+#change the 1s to the number of the actual drug
+  #now dmts
+dmt_legacy_now$dmtlist_now___1 <- gsub("1", "Aubagio", dmt_legacy_now$dmtlist_now___1)
+dmt_legacy_now$dmtlist_now___2 <- gsub("1", "Avonex", dmt_legacy_now$dmtlist_now___2)
+dmt_legacy_now$dmtlist_now___3 <- gsub("1", "Betaseron", dmt_legacy_now$dmtlist_now___3)
+dmt_legacy_now$dmtlist_now___4 <- gsub("1", "Copaxone", dmt_legacy_now$dmtlist_now___4)
+dmt_legacy_now$dmtlist_now___5 <- gsub("1", "Extavia", dmt_legacy_now$dmtlist_now___5)
+dmt_legacy_now$dmtlist_now___6 <- gsub("1", "Gilenya", dmt_legacy_now$dmtlist_now___6)
+dmt_legacy_now$dmtlist_now___7 <- gsub("1", "Novantrone", dmt_legacy_now$dmtlist_now___7)
+dmt_legacy_now$dmtlist_now___8 <- gsub("1", "Plegridy", dmt_legacy_now$dmtlist_now___8)
+dmt_legacy_now$dmtlist_now___9 <- gsub("1", "Rebif", dmt_legacy_now$dmtlist_now___9)
+dmt_legacy_now$dmtlist_now___10 <- gsub("1", "Tecfidera", dmt_legacy_now$dmtlist_now___10)
+dmt_legacy_now$dmtlist_now___11 <- gsub("1", "Tysabri", dmt_legacy_now$dmtlist_now___11)
+dmt_legacy_now$dmtlist_now___12 <- gsub("1", "Other", dmt_legacy_now$dmtlist_now___12)
+dmt_legacy_now$dmtlist_now___13 <- gsub("1", "Rituxan", dmt_legacy_now$dmtlist_now___13)
+dmt_legacy_now$dmtlist_now___14 <- gsub("1", "Zinbryta", dmt_legacy_now$dmtlist_now___14)
+dmt_legacy_now$dmtlist_now___15 <- gsub("1", "Ocrevus", dmt_legacy_now$dmtlist_now___15)
+dmt_legacy_now$dmtlist_now___16 <- gsub("1", "Lemtrada", dmt_legacy_now$dmtlist_now___16)
+
+#combine all columns
+dmt_legacy_nowType <- dmt_legacy_now %>% gather(typeNumber, type, 3:18)
+dmt_legacy_nowType <- dmt_legacy_nowType[,c(1,2,19,20,21)]
+
+dmt_legacy_nowStart <- dmt_legacy_now %>% gather(startNumber, start, 19:34)
+dmt_legacy_nowStart <- dmt_legacy_nowStart[,c(1,2,19,20,21)]
+dmt_legacy_now2 <- cbind(dmt_legacy_nowType, dmt_legacy_nowStart)
+  #end is the survey date
+
+dmt_legacy_now2 <- dmt_legacy_now2[,c("id_participant", "type", "start", "promote_self_reported_outcomes_timestamp", "dmt_now")]
+#account for y/n question for promote samples
+dmt_legacy_now2$type <- ifelse(
+    ( 
+        is.na(dmt_legacy_now2$type) &
+          dmt_legacy_now2$dmt_now==0
+    ),
+    dmt_legacy_now2$dmt_now,  #puts this where conditions are met
+    dmt_legacy_now2$type         #puts this where conditions are not met
+)
+dmt_legacy_now2$type <- gsub("0", "None", dmt_legacy_now2$type)
+
+dmt_legacy_now2 <- dmt_legacy_now2 %>% filter(!is.na(type))
+names(dmt_legacy_now2)[4] <- 'end'
+dmt_legacy_now2 <- dmt_legacy_now2[,-c(5)]
+dmt_legacy_now2$end <- format(as.POSIXct(dmt_legacy_now2$end, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+
+#change empty start dates to survey completion date
+dmt_legacy_now2[dmt_legacy_now2 == ""] <- NA
+dmt_legacy_now2 <- dmt_legacy_now2 %>%
+  mutate_all(as.character)
+dmt_legacy_now2$start <- ifelse(
+    ( 
+        is.na(dmt_legacy_now2$start)
+    ),
+    dmt_legacy_now2$end,  #puts this where conditions are met
+    dmt_legacy_now2$start         #puts this where conditions are not met
+)
+
+```
+
+##Past
+```{r}
+#PAST
+dmt_legacy_past <- legacy[,c("id_participant", "dmtlist_past___1", "dmtlist_past___2", "dmtlist_past___3", "dmtlist_past___4", "dmtlist_past___5", "dmtlist_past___6", "dmtlist_past___7", "dmtlist_past___8", "dmtlist_past___9", "dmtlist_past___10", "dmtlist_past___11", "dmtlist_past___12", "dmtlist_past___13", "dmtlist_past___14", "dmtlist_past___15", "dmtlist_past___16",
+                             "dmt_past_aubagio_start", "dmt_past_avonex_start", "dmt_past_betaseron_start", "dmt_past_copaxon_start", "dmt_past_extavia_start", "dmt_past_gilenya_start", "dmt_past_novantrone_start", "dmt_past_plegridy_start", "dmt_past_rebif_start", "dmt_past_tecfidera_start", "dmt_past_tysabri_start", "dmt_past_other", "dmt_past_rituxan_start", "dmt_past_zinbryta_start", "dmt_past_ocrevus_start", "dmt_past_lemtrada_start",
+                             "dmt_past_aubagio_duration", "dmt_past_avonex_duration", "dmt_past_betaseron_duration", "dmt_past_copaxone_duration", "dmt_past_extavia_duration", "dmt_past_gilenya_duration", "dmt_past_novantrone_duration", "dmt_past_plegridy_duration", "dmt_past_rebif_duration", "dmt_past_tecfidera_duration", "dmt_past_tysabri_duration", "dmt_past_other", "dmt_past_rituxan_duration", "dmt_past_zinbryta_duration", "dmt_past_ocrevus_duration", "dmt_past_lemtrada_duration", "dmt_past")]
+
+#get rid of all the 0s and switch with NAs
+dmt_legacy_past <- dmt_legacy_past %>% mutate(across(starts_with('dmtlist'), ~replace(., . == 0, NA)))
+  #past dmts
+dmt_legacy_past$dmtlist_past___1 <- gsub("1", "Aubagio", dmt_legacy_past$dmtlist_past___1)
+dmt_legacy_past$dmtlist_past___2 <- gsub("1", "Avonex", dmt_legacy_past$dmtlist_past___2)
+dmt_legacy_past$dmtlist_past___3 <- gsub("1", "Betaseron", dmt_legacy_past$dmtlist_past___3)
+dmt_legacy_past$dmtlist_past___4 <- gsub("1", "Copaxone", dmt_legacy_past$dmtlist_past___4)
+dmt_legacy_past$dmtlist_past___5 <- gsub("1", "Extavia", dmt_legacy_past$dmtlist_past___5)
+dmt_legacy_past$dmtlist_past___6 <- gsub("1", "Gilenya", dmt_legacy_past$dmtlist_past___6)
+dmt_legacy_past$dmtlist_past___7 <- gsub("1", "Novantrone", dmt_legacy_past$dmtlist_past___7)
+dmt_legacy_past$dmtlist_past___8 <- gsub("1", "Plegridy", dmt_legacy_past$dmtlist_past___8)
+dmt_legacy_past$dmtlist_past___9 <- gsub("1", "Rebif", dmt_legacy_past$dmtlist_past___9)
+dmt_legacy_past$dmtlist_past___10 <- gsub("1", "Tecfidera", dmt_legacy_past$dmtlist_past___10)
+dmt_legacy_past$dmtlist_past___11 <- gsub("1", "Tysabri", dmt_legacy_past$dmtlist_past___11)
+dmt_legacy_past$dmtlist_past___12 <- gsub("1", "Other", dmt_legacy_past$dmtlist_past___12)
+dmt_legacy_past$dmtlist_past___13 <- gsub("1", "Rituxan", dmt_legacy_past$dmtlist_past___13)
+dmt_legacy_past$dmtlist_past___14 <- gsub("1", "Zinbryta", dmt_legacy_past$dmtlist_past___14)
+dmt_legacy_past$dmtlist_past___15 <- gsub("1", "Ocrevus", dmt_legacy_past$dmtlist_past___15)
+dmt_legacy_past$dmtlist_past___16 <- gsub("1", "Lemtrada", dmt_legacy_past$dmtlist_past___16)
+
+#combine all columns
+dmt_legacy_pastType <- dmt_legacy_past %>% gather(typeNumber, type, 2:17)
+dmt_legacy_pastType <- dmt_legacy_pastType[,c(1,34,35,36)]
+
+dmt_legacy_pastStart <- dmt_legacy_past %>% gather(startNumber, start, 18:33)
+dmt_legacy_pastStart <- dmt_legacy_pastStart[,c(1,34,35,36)]
+
+dmt_legacy_pastEnd <- dmt_legacy_past %>% gather(endNumber, end, 34:49)
+dmt_legacy_pastEnd <- dmt_legacy_pastEnd[,c(1,34,35,36)]
+
+dmt_legacy_past2 <- cbind(dmt_legacy_pastType, dmt_legacy_pastStart, dmt_legacy_pastEnd)
+
+dmt_legacy_past2 <- dmt_legacy_past2[,c("id_participant", "type", "start", "end", "dmt_past")]
+
+#account for y/n question for promote samples
+dmt_legacy_past2$type <- ifelse(
+    ( 
+        is.na(dmt_legacy_past2$type) &
+          dmt_legacy_past2$dmt_past==0
+    ),
+    dmt_legacy_past2$dmt_past,  #puts this where conditions are met
+    dmt_legacy_past2$type         #puts this where conditions are not met
+)
+dmt_legacy_past2$type <- gsub("0", "None", dmt_legacy_past2$type)
+dmt_legacy_past2 <- dmt_legacy_past2 %>% filter(!is.na(type))
+dmt_legacy_past2 <- dmt_legacy_past2[,-c(5)]
+
+
+#don't change end dates to start date when not available- there were no end dates reported
+dmt_legacy_past2[dmt_legacy_past2 == ""] <- NA
+dmt_legacy_past2 <- dmt_legacy_past2 %>%
+  mutate_all(as.character)
+
+
+
+```
+
+#SRO Longitudinal
+##Now
+```{r}
+#NOW
+dmt_sro_now <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "dmtlist_now___1", "dmtlist_now___2", "dmtlist_now___3", "dmtlist_now___4", "dmtlist_now___5", "dmtlist_now___6", "dmtlist_now___7", "dmtlist_now___8", "dmtlist_now___9", "dmtlist_now___10", "dmtlist_now___11", "dmtlist_now___12", "dmtlist_now___13", "dmtlist_now___14", "dmtlist_now___15", "dmtlist_now___16", "dmtlist_now___17", "dmtlist_now___18", "dmtlist_now___19", "dmtlist_now___20", "dmtlist_now___21", "dmtlist_now___22", "dmtlist_now___23", "dmtlist_now___24", "dmtlist_now___25", "dmtlist_now___26", "dmt_now_aubagio_start", "dmt_now_avonex_start", "dmt_now_betaseron_start", "dmt_now_copaxone_start", "dmt_now_extavia_start", "dmt_now_gilenya_start", "dmt_now_novantrone_start", "dmt_now_plegridy_start", "dmt_now_rebif_start", "dmt_now_tecfidera_start", "dmt_now_tysabri_start", "dmt_now_other", "dmt_now_rituxan_start", "dmt_now_zinbryta_start", "dmt_now_ocrevus_start", "dmt_now_lemtrada_start", "dmt_now_cladribine_start", "dmt_now_siponimod_start", "dmt_now_vumerity_start", "dmt_now_zeposia_start", "dmt_now_kesimpta_start", "dmt_now_soliris_start", "dmt_now_uplizna_start", "dmt_now_enspryng_start", "dmt_now_ponvory_start", "dmt_now_bafiertam_start", "dmt_now")]
+
+#get rid of all the 0s and switch with NAs
+dmt_sro_now <- dmt_sro_now %>% mutate(across(starts_with('dmtlist'), ~replace(., . == 0, NA)))
+#change the 1s to the number of the actual drug
+  #now dmts
+dmt_sro_now$dmtlist_now___1 <- gsub("1", "Aubagio", dmt_sro_now$dmtlist_now___1)
+dmt_sro_now$dmtlist_now___2 <- gsub("1", "Avonex", dmt_sro_now$dmtlist_now___2)
+dmt_sro_now$dmtlist_now___3 <- gsub("1", "Betaseron", dmt_sro_now$dmtlist_now___3)
+dmt_sro_now$dmtlist_now___4 <- gsub("1", "Copaxone", dmt_sro_now$dmtlist_now___4)
+dmt_sro_now$dmtlist_now___5 <- gsub("1", "Extavia", dmt_sro_now$dmtlist_now___5)
+dmt_sro_now$dmtlist_now___6 <- gsub("1", "Gilenya", dmt_sro_now$dmtlist_now___6)
+dmt_sro_now$dmtlist_now___7 <- gsub("1", "Novantrone", dmt_sro_now$dmtlist_now___7)
+dmt_sro_now$dmtlist_now___8 <- gsub("1", "Plegridy", dmt_sro_now$dmtlist_now___8)
+dmt_sro_now$dmtlist_now___9 <- gsub("1", "Rebif", dmt_sro_now$dmtlist_now___9)
+dmt_sro_now$dmtlist_now___10 <- gsub("1", "Tecfidera", dmt_sro_now$dmtlist_now___10)
+dmt_sro_now$dmtlist_now___11 <- gsub("1", "Tysabri", dmt_sro_now$dmtlist_now___11)
+dmt_sro_now$dmtlist_now___12 <- gsub("1", "Other", dmt_sro_now$dmtlist_now___12)
+dmt_sro_now$dmtlist_now___13 <- gsub("1", "Rituxan", dmt_sro_now$dmtlist_now___13)
+dmt_sro_now$dmtlist_now___14 <- gsub("1", "Zinbryta", dmt_sro_now$dmtlist_now___14)
+dmt_sro_now$dmtlist_now___15 <- gsub("1", "Ocrevus", dmt_sro_now$dmtlist_now___15)
+dmt_sro_now$dmtlist_now___16 <- gsub("1", "Lemtrada", dmt_sro_now$dmtlist_now___16)
+dmt_sro_now$dmtlist_now___17 <- gsub("1", "Mavenclad", dmt_sro_now$dmtlist_now___17)
+dmt_sro_now$dmtlist_now___18 <- gsub("1", "Mayzent", dmt_sro_now$dmtlist_now___18)
+dmt_sro_now$dmtlist_now___19 <- gsub("1", "Vumerity", dmt_sro_now$dmtlist_now___19)
+dmt_sro_now$dmtlist_now___20 <- gsub("1", "Zeposia", dmt_sro_now$dmtlist_now___20)
+dmt_sro_now$dmtlist_now___21 <- gsub("1", "Kesimpta", dmt_sro_now$dmtlist_now___21)
+dmt_sro_now$dmtlist_now___22 <- gsub("1", "Soliris", dmt_sro_now$dmtlist_now___22)
+dmt_sro_now$dmtlist_now___23 <- gsub("1", "Uplizna", dmt_sro_now$dmtlist_now___23)
+dmt_sro_now$dmtlist_now___24 <- gsub("1", "Enspryng", dmt_sro_now$dmtlist_now___24)
+dmt_sro_now$dmtlist_now___25 <- gsub("1", "Ponvory", dmt_sro_now$dmtlist_now___25)
+dmt_sro_now$dmtlist_now___26 <- gsub("1", "Bafiertam", dmt_sro_now$dmtlist_now___26)
+
+#combine all columns
+dmt_sro_nowType <- dmt_sro_now %>% gather(typeNumber, type, 3:28)
+dmt_sro_nowType <- dmt_sro_nowType[,c(1,2,29,30,31)]
+
+dmt_sro_nowStart <- dmt_sro_now %>% gather(startNumber, start, 29:54)
+dmt_sro_nowStart <- dmt_sro_nowStart[,c(1,2,29,30,31)]
+dmt_sro_now2 <- cbind(dmt_sro_nowType, dmt_sro_nowStart)
+  #end is the survey date
+
+dmt_sro_now2 <- dmt_sro_now2[,c("id_participant_l", "type", "start", "promote_self_reported_outcomes_timestamp", "dmt_now")]
+#account for y/n question for promote samples
+dmt_sro_now2$type <- ifelse(
+    ( 
+        is.na(dmt_sro_now2$type) &
+          dmt_sro_now2$dmt_now==0
+    ),
+    dmt_sro_now2$dmt_now,  #puts this where conditions are met
+    dmt_sro_now2$type         #puts this where conditions are not met
+)
+dmt_sro_now2$type <- gsub("0", "None", dmt_sro_now2$type)
+
+dmt_sro_now2 <- dmt_sro_now2 %>% filter(!is.na(type))
+names(dmt_sro_now2)[1] <- 'id_participant'
+names(dmt_sro_now2)[4] <- 'end'
+dmt_sro_now2$end <- format(as.POSIXct(dmt_sro_now2$end, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+dmt_sro_now2 <- dmt_sro_now2[,-c(5)]
+
+#change empty start dates to survey completion date
+dmt_sro_now2[dmt_sro_now2 == ""] <- NA
+dmt_sro_now2 <- dmt_sro_now2 %>%
+  mutate_all(as.character)
+dmt_sro_now2$start <- ifelse(
+    ( 
+        is.na(dmt_sro_now2$start)
+    ),
+    dmt_sro_now2$end,  #puts this where conditions are met
+    dmt_sro_now2$start         #puts this where conditions are not met
+)
+
+
+```
+
+##Past
+```{r}
+#PAST
+dmt_sro_past <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "dmtlist_past___1", "dmtlist_past___2", "dmtlist_past___3", "dmtlist_past___4", "dmtlist_past___5", "dmtlist_past___6", "dmtlist_past___7", "dmtlist_past___8", "dmtlist_past___9", "dmtlist_past___10", "dmtlist_past___11", "dmtlist_past___12", "dmtlist_past___13", "dmtlist_past___14", "dmtlist_past___15", "dmtlist_past___16", "dmtlist_past___17", "dmtlist_past___18", "dmtlist_past___19", "dmtlist_past___20", "dmtlist_past___21", "dmtlist_past___22", "dmtlist_past___23", "dmtlist_past___24", "dmtlist_past___25", "dmtlist_past___26", "dmt_past_aubagio_start", "dmt_past_avonex_start", "dmt_past_betaseron_start", "dmt_past_copaxon_start", "dmt_past_extavia_start", "dmt_past_gilenya_start", "dmt_past_novantrone_start", "dmt_past_plegridy_start", "dmt_past_rebif_start", "dmt_past_tecfidera_start", "dmt_past_tysabri_start", "dmt_past_other", "dmt_past_rituxan_start", "dmt_past_zinbryta_start", "dmt_past_ocrevus_start", "dmt_past_lemtrada_start", "dmt_past_cladribine_start", "dmt_past_siponimod_start", "dmt_past_vumerity_start", "dmt_past_zeposia_start", "dmt_past_kesimpta_start", "dmt_past_soliris_start", "dmt_past_uplizna_start", "dmt_past_enspryng_start", "dmt_past_ponvory_start", "dmt_past_bafiertam_start", "dmt_past")]
+
+#get rid of all the 0s and switch with NAs
+dmt_sro_past <- dmt_sro_past %>% mutate(across(starts_with('dmtlist'), ~replace(., . == 0, NA)))
+#change the 1s to the number of the actual drug
+  #now dmts
+dmt_sro_past$dmtlist_past___1 <- gsub("1", "Aubagio", dmt_sro_past$dmtlist_past___1)
+dmt_sro_past$dmtlist_past___2 <- gsub("1", "Avonex", dmt_sro_past$dmtlist_past___2)
+dmt_sro_past$dmtlist_past___3 <- gsub("1", "Betaseron", dmt_sro_past$dmtlist_past___3)
+dmt_sro_past$dmtlist_past___4 <- gsub("1", "Copaxone", dmt_sro_past$dmtlist_past___4)
+dmt_sro_past$dmtlist_past___5 <- gsub("1", "Extavia", dmt_sro_past$dmtlist_past___5)
+dmt_sro_past$dmtlist_past___6 <- gsub("1", "Gilenya", dmt_sro_past$dmtlist_past___6)
+dmt_sro_past$dmtlist_past___7 <- gsub("1", "Novantrone", dmt_sro_past$dmtlist_past___7)
+dmt_sro_past$dmtlist_past___8 <- gsub("1", "Plegridy", dmt_sro_past$dmtlist_past___8)
+dmt_sro_past$dmtlist_past___9 <- gsub("1", "Rebif", dmt_sro_past$dmtlist_past___9)
+dmt_sro_past$dmtlist_past___10 <- gsub("1", "Tecfidera", dmt_sro_past$dmtlist_past___10)
+dmt_sro_past$dmtlist_past___11 <- gsub("1", "Tysabri", dmt_sro_past$dmtlist_past___11)
+dmt_sro_past$dmtlist_past___12 <- gsub("1", "Other", dmt_sro_past$dmtlist_past___12)
+dmt_sro_past$dmtlist_past___13 <- gsub("1", "Rituxan", dmt_sro_past$dmtlist_past___13)
+dmt_sro_past$dmtlist_past___14 <- gsub("1", "Zinbryta", dmt_sro_past$dmtlist_past___14)
+dmt_sro_past$dmtlist_past___15 <- gsub("1", "Ocrevus", dmt_sro_past$dmtlist_past___15)
+dmt_sro_past$dmtlist_past___16 <- gsub("1", "Lemtrada", dmt_sro_past$dmtlist_past___16)
+dmt_sro_past$dmtlist_past___17 <- gsub("1", "Mavenclad", dmt_sro_past$dmtlist_past___17)
+dmt_sro_past$dmtlist_past___18 <- gsub("1", "Mayzent", dmt_sro_past$dmtlist_past___18)
+dmt_sro_past$dmtlist_past___19 <- gsub("1", "Vumerity", dmt_sro_past$dmtlist_past___19)
+dmt_sro_past$dmtlist_past___20 <- gsub("1", "Zeposia", dmt_sro_past$dmtlist_past___20)
+dmt_sro_past$dmtlist_past___21 <- gsub("1", "Kesimpta", dmt_sro_past$dmtlist_past___21)
+dmt_sro_past$dmtlist_past___22 <- gsub("1", "Soliris", dmt_sro_past$dmtlist_past___22)
+dmt_sro_past$dmtlist_past___23 <- gsub("1", "Uplizna", dmt_sro_past$dmtlist_past___23)
+dmt_sro_past$dmtlist_past___24 <- gsub("1", "Enspryng", dmt_sro_past$dmtlist_past___24)
+dmt_sro_past$dmtlist_past___25 <- gsub("1", "Ponvory", dmt_sro_past$dmtlist_past___25)
+dmt_sro_past$dmtlist_past___26 <- gsub("1", "Bafiertam", dmt_sro_past$dmtlist_past___26)
+
+
+#combine all columns
+dmt_sro_pastType <- dmt_sro_past %>% gather(typeNumber, type, 3:28)
+dmt_sro_pastType <- dmt_sro_pastType[,c(1,2,29,30,31)]
+
+dmt_sro_pastStart <- dmt_sro_past %>% gather(startNumber, start, 29:54)
+dmt_sro_pastStart <- dmt_sro_pastStart[,c(1,2,29,30,31)]
+dmt_sro_past2 <- cbind(dmt_sro_pastType, dmt_sro_pastStart)
+  #no end dates
+
+dmt_sro_past2 <- dmt_sro_past2[,c("id_participant_l", "type", "start", "dmt_past")]
+#account for y/n question for promote samples
+dmt_sro_past2$type <- ifelse(
+    ( 
+        is.na(dmt_sro_past2$type) &
+          dmt_sro_past2$dmt_past==0
+    ),
+    dmt_sro_past2$dmt_past,  #puts this where conditions are met
+    dmt_sro_past2$type         #puts this where conditions are not met
+)
+dmt_sro_past2$type <- gsub("0", "None", dmt_sro_past2$type)
+
+dmt_sro_past2 <- dmt_sro_past2 %>% filter(!is.na(type))
+names(dmt_sro_past2)[1] <- 'id_participant'
+dmt_sro_past2$end <- NA
+dmt_sro_past2 <- dmt_sro_past2[,-c(4)]
+
+
+#don't change end dates to start date when not available- there were no end dates reported and the survey date is not the start date since these were all taken in the past
+dmt_sro_past2[dmt_sro_past2 == ""] <- NA
+dmt_sro_past2 <- dmt_sro_past2 %>%
+  mutate_all(as.character)
+
+
+```
+
+#Update Longitudinal
+##Now
+```{r}
+dmt_update_now <- longitudinal[,c("id_participant_l", "update_questionnaire_timestamp", "dmtlist_now_8c7559___1", "dmtlist_now_8c7559___2",		"dmtlist_now_8c7559___3",	"dmtlist_now_8c7559___4",	"dmtlist_now_8c7559___5",	"dmtlist_now_8c7559___6", "dmtlist_now_8c7559___7", "dmtlist_now_8c7559___8", "dmtlist_now_8c7559___9", "dmtlist_now_8c7559___10", "dmtlist_now_8c7559___11", "dmtlist_now_8c7559___12", "dmtlist_now_8c7559___13", "dmtlist_now_8c7559___14", "dmtlist_now_8c7559___15", "dmtlist_now_8c7559___16", "dmtlist_now_8c7559___17",	"dmtlist_now_8c7559___18", "dmtlist_now_8c7559___19", "dmtlist_now_8c7559___20", "dmtlist_now_8c7559___21", "dmtlist_now_8c7559___22", "dmtlist_now_8c7559___23", "dmtlist_now_8c7559___24", "dmtlist_now_8c7559___25",  "dmtlist_now_8c7559___26", 
+                               "dmt_now_aubagio_start_39e486", "dmt_now_avonex_start_5475ce", "dmt_now_betaseron_start_b42775", "dmt_now_copaxone_start_ea4ebd", "dmt_now_extavia_start_3e566e", "dmt_now_gilenya_start_e82d33", "dmt_now_novantrone_start_425bec", "dmt_now_plegridy_start_8dddd2", "dmt_now_rebif_start_16bad3", "dmt_now_tecfidera_start_e469ff", "dmt_now_tysabri_start_d0187d", "dmt_now_other_3e0d58", "dmt_now_rituxan_start_672c0d", "dmt_now_zinbryta_start_abdba9", "dmt_now_ocrevus_start_b19608", "dmt_now_lemtrada_start_378964", "dmt_now_cladribine_start_378965", "dmt_now_siponimod_start_378966", "dmt_now_vumerity_start_d0187d", "dmt_now_zeposia_start_abdba", "dmt_now_kesimpta_start_uq", "dmt_now_soliris_start_uq", "dmt_now_uplizna_start_uq", "dmt_now_enspryng_start_uq", "dmt_now_ponvory_start_uq", "dmt_now_bafiertam_start_uq", "dmt_now_a18f90")]
+
+#get rid of all the 0s and switch with NAs
+dmt_update_now <- dmt_update_now %>% mutate(across(starts_with('dmtlist'), ~replace(., . == 0, NA)))
+#change the 1s to the number of the actual drug
+  #now dmts
+dmt_update_now$dmtlist_now_8c7559___1 <- gsub("1", "Aubagio", dmt_update_now$dmtlist_now_8c7559___1)
+dmt_update_now$dmtlist_now_8c7559___2 <- gsub("1", "Avonex", dmt_update_now$dmtlist_now_8c7559___2)
+dmt_update_now$dmtlist_now_8c7559___3 <- gsub("1", "Betaseron", dmt_update_now$dmtlist_now_8c7559___3)
+dmt_update_now$dmtlist_now_8c7559___4 <- gsub("1", "Copaxone", dmt_update_now$dmtlist_now_8c7559___4)
+dmt_update_now$dmtlist_now_8c7559___5 <- gsub("1", "Extavia", dmt_update_now$dmtlist_now_8c7559___5)
+dmt_update_now$dmtlist_now_8c7559___6 <- gsub("1", "Gilenya", dmt_update_now$dmtlist_now_8c7559___6)
+dmt_update_now$dmtlist_now_8c7559___7 <- gsub("1", "Novantrone", dmt_update_now$dmtlist_now_8c7559___7)
+dmt_update_now$dmtlist_now_8c7559___8 <- gsub("1", "Plegridy", dmt_update_now$dmtlist_now_8c7559___8)
+dmt_update_now$dmtlist_now_8c7559___9 <- gsub("1", "Rebif", dmt_update_now$dmtlist_now_8c7559___9)
+dmt_update_now$dmtlist_now_8c7559___10 <- gsub("1", "Tecfidera", dmt_update_now$dmtlist_now_8c7559___10)
+dmt_update_now$dmtlist_now_8c7559___11 <- gsub("1", "Tysabri", dmt_update_now$dmtlist_now_8c7559___11)
+dmt_update_now$dmtlist_now_8c7559___12 <- gsub("1", "Other", dmt_update_now$dmtlist_now_8c7559___12)
+dmt_update_now$dmtlist_now_8c7559___13 <- gsub("1", "Rituxan", dmt_update_now$dmtlist_now_8c7559___13)
+dmt_update_now$dmtlist_now_8c7559___14 <- gsub("1", "Zinbryta", dmt_update_now$dmtlist_now_8c7559___14)
+dmt_update_now$dmtlist_now_8c7559___15 <- gsub("1", "Ocrevus", dmt_update_now$dmtlist_now_8c7559___15)
+dmt_update_now$dmtlist_now_8c7559___16 <- gsub("1", "Lemtrada", dmt_update_now$dmtlist_now_8c7559___16)
+dmt_update_now$dmtlist_now_8c7559___17 <- gsub("1", "Mavenclad", dmt_update_now$dmtlist_now_8c7559___17)
+dmt_update_now$dmtlist_now_8c7559___18 <- gsub("1", "Mayzent", dmt_update_now$dmtlist_now_8c7559___18)
+dmt_update_now$dmtlist_now_8c7559___19 <- gsub("1", "Vumerity", dmt_update_now$dmtlist_now_8c7559___19)
+dmt_update_now$dmtlist_now_8c7559___20 <- gsub("1", "Zeposia", dmt_update_now$dmtlist_now_8c7559___20)
+dmt_update_now$dmtlist_now_8c7559___21 <- gsub("1", "Kesimpta", dmt_update_now$dmtlist_now_8c7559___21)
+dmt_update_now$dmtlist_now_8c7559___22 <- gsub("1", "Soliris", dmt_update_now$dmtlist_now_8c7559___22)
+dmt_update_now$dmtlist_now_8c7559___23 <- gsub("1", "Uplizna", dmt_update_now$dmtlist_now_8c7559___23)
+dmt_update_now$dmtlist_now_8c7559___24 <- gsub("1", "Enspryng", dmt_update_now$dmtlist_now_8c7559___24)
+dmt_update_now$dmtlist_now_8c7559___25 <- gsub("1", "Ponvory", dmt_update_now$dmtlist_now_8c7559___25)
+dmt_update_now$dmtlist_now_8c7559___26 <- gsub("1", "Bafiertam", dmt_update_now$dmtlist_now_8c7559___26)
+
+#combine all columns
+dmt_update_nowType <- dmt_update_now %>% gather(typeNumber, type, 3:28)
+dmt_update_nowType <- dmt_update_nowType[,c(1,2,29,30,31)]
+
+dmt_update_nowStart <- dmt_update_now %>% gather(startNumber, start, 29:54)
+dmt_update_nowStart <- dmt_update_nowStart[,c(1,2,29,30,31)]
+dmt_update_now2 <- cbind(dmt_update_nowType, dmt_update_nowStart)
+  #end is the survey date
+
+dmt_update_now2 <- dmt_update_now2[,c("id_participant_l", "type", "start", "update_questionnaire_timestamp", "dmt_now_a18f90")]
+#account for y/n question for promote samples
+dmt_update_now2$type <- ifelse(
+    ( 
+        is.na(dmt_update_now2$type) &
+          dmt_update_now2$dmt_now_a18f90==0
+    ),
+    dmt_update_now2$dmt_now_a18f90,  #puts this where conditions are met
+    dmt_update_now2$type         #puts this where conditions are not met
+)
+dmt_update_now2$type <- gsub("0", "None", dmt_update_now2$type)
+
+dmt_update_now2 <- dmt_update_now2 %>% filter(!is.na(type))
+names(dmt_update_now2)[1] <- 'id_participant'
+names(dmt_update_now2)[4] <- 'end'
+dmt_update_now2$end <- format(as.POSIXct(dmt_update_now2$end, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+dmt_update_now2 <- dmt_update_now2[,-c(5)]
+
+#change empty start dates to survey completion date
+dmt_update_now2[dmt_update_now2 == ""] <- NA
+dmt_update_now2 <- dmt_update_now2 %>%
+  mutate_all(as.character)
+dmt_update_now2$start <- ifelse(
+    ( 
+        is.na(dmt_update_now2$start)
+    ),
+    dmt_update_now2$end,  #puts this where conditions are met
+    dmt_update_now2$start         #puts this where conditions are not met
+)
+
+
+```
+
+##Past
+```{r}
+dmt_update_past <- longitudinal[,c("id_participant_l", "dmtlist_past_year___1", "dmtlist_past_year___2", "dmtlist_past_year___3", "dmtlist_past_year___4", "dmtlist_past_year___5", "dmtlist_past_year___6", "dmtlist_past_year___7", "dmtlist_past_year___8", "dmtlist_past_year___9", "dmtlist_past_year___10", "dmtlist_past_year___11", "dmtlist_past_year___12", "dmtlist_past_year___13", "dmtlist_past_year___14", "dmtlist_past_year___15", "dmtlist_past_year___16", "dmtlist_past_year___17", "dmtlist_past_year___18", "dmtlist_past_year___19", "dmtlist_past_year___20", "dmtlist_past_year___21", "dmtlist_past_year___22", "dmtlist_past_year___23", "dmtlist_past_year___24", "dmtlist_past_year___25", "dmtlist_past_year___26",
+                                   "dmt_past_year_aubagio_start", "dmt_past_year_avonex_start", "dmt_past_year_betaseron_start", "dmt_past_year_copaxon_start", "dmt_past_year_extavia_start", "dmt_past_year_gilenya_start", "dmt_past_year_novantrone_start", "dmt_past_year_plegridy_start", "dmt_past_year_rebif_start", "dmt_past_year_tecfidera_start", "dmt_past_year_tysabri_start", "dmt_past_year_other", "dmt_past_year_rituxan_start", "dmt_past_year_zinbryta_start", "dmt_past_year_ocrevus_start", "dmt_past_year_lemtrada_start", "dmt_past_year_cladribine_start", "dmt_past_year_siponimod_start", "dmt_past_year_vumerity_start", "dmt_past_year_zeposia_start", "dmt_past_year_kesimpta_start", "dmt_past_year_soliris_start", "dmt_past_year_uplizna_start", "dmt_past_year_enspryng_start", "dmt_past_year_ponvory_start", "dmt_past_year_bafiertam_start",
+                                   "dmt_past_year_aubagio_end", "dmt_past_year_avonex_end", "dmt_past_year_betaseron_end", "dmt_past_year_copaxon_end", "dmt_past_year_extavia_end", "dmt_past_year_gilenya_end", "dmt_past_year_novantrone_end", "dmt_past_year_plegridy_end", "dmt_past_year_rebif_end", "dmt_past_year_tecfidera_end", "dmt_past_year_tysabri_end", "dmt_past_year_other", "dmt_past_year_rituxan_end", "dmt_past_year_zinbryta_end", "dmt_past_year_ocrevus_end", "dmt_past_year_lemtrada_end", "dmt_past_year_cladribine_end", "dmt_past_year_siponimod_end", "dmt_past_year_vumerity_end", "dmt_past_year_zeposia_end", "dmt_past_year_kesimpta_end", "dmt_past_year_soliris_end", "dmt_past_year_uplizna_end", "dmt_past_year_enspryng_end", "dmt_past_year_ponvory_end", "dmt_past_year_bafiertam_end", "dmt_past_year")]
+                                   
+#get rid of all the 0s and switch with NAs
+dmt_update_past <- dmt_update_past %>% mutate(across(starts_with('dmtlist'), ~replace(., . == 0, NA)))
+#change the 1s to the number of the actual drug
+  #now dmts
+dmt_update_past$dmtlist_past_year___1 <- gsub("1", "Aubagio", dmt_update_past$dmtlist_past_year___1)
+dmt_update_past$dmtlist_past_year___2 <- gsub("1", "Avonex", dmt_update_past$dmtlist_past_year___2)
+dmt_update_past$dmtlist_past_year___3 <- gsub("1", "Betaseron", dmt_update_past$dmtlist_past_year___3)
+dmt_update_past$dmtlist_past_year___4 <- gsub("1", "Copaxone", dmt_update_past$dmtlist_past_year___4)
+dmt_update_past$dmtlist_past_year___5 <- gsub("1", "Extavia", dmt_update_past$dmtlist_past_year___5)
+dmt_update_past$dmtlist_past_year___6 <- gsub("1", "Gilenya", dmt_update_past$dmtlist_past_year___6)
+dmt_update_past$dmtlist_past_year___7 <- gsub("1", "Novantrone", dmt_update_past$dmtlist_past_year___7)
+dmt_update_past$dmtlist_past_year___8 <- gsub("1", "Plegridy", dmt_update_past$dmtlist_past_year___8)
+dmt_update_past$dmtlist_past_year___9 <- gsub("1", "Rebif", dmt_update_past$dmtlist_past_year___9)
+dmt_update_past$dmtlist_past_year___10 <- gsub("1", "Tecfidera", dmt_update_past$dmtlist_past_year___10)
+dmt_update_past$dmtlist_past_year___11 <- gsub("1", "Tysabri", dmt_update_past$dmtlist_past_year___11)
+dmt_update_past$dmtlist_past_year___12 <- gsub("1", "Other", dmt_update_past$dmtlist_past_year___12)
+dmt_update_past$dmtlist_past_year___13 <- gsub("1", "Rituxan", dmt_update_past$dmtlist_past_year___13)
+dmt_update_past$dmtlist_past_year___14 <- gsub("1", "Zinbryta", dmt_update_past$dmtlist_past_year___14)
+dmt_update_past$dmtlist_past_year___15 <- gsub("1", "Ocrevus", dmt_update_past$dmtlist_past_year___15)
+dmt_update_past$dmtlist_past_year___16 <- gsub("1", "Lemtrada", dmt_update_past$dmtlist_past_year___16)
+dmt_update_past$dmtlist_past_year___17 <- gsub("1", "Mavenclad", dmt_update_past$dmtlist_past_year___17)
+dmt_update_past$dmtlist_past_year___18 <- gsub("1", "Mayzent", dmt_update_past$dmtlist_past_year___18)
+dmt_update_past$dmtlist_past_year___19 <- gsub("1", "Vumerity", dmt_update_past$dmtlist_past_year___19)
+dmt_update_past$dmtlist_past_year___20 <- gsub("1", "Zeposia", dmt_update_past$dmtlist_past_year___20)
+dmt_update_past$dmtlist_past_year___21 <- gsub("1", "Kesimpta", dmt_update_past$dmtlist_past_year___21)
+dmt_update_past$dmtlist_past_year___22 <- gsub("1", "Soliris", dmt_update_past$dmtlist_past_year___22)
+dmt_update_past$dmtlist_past_year___23 <- gsub("1", "Uplizna", dmt_update_past$dmtlist_past_year___23)
+dmt_update_past$dmtlist_past_year___24 <- gsub("1", "Enspryng", dmt_update_past$dmtlist_past_year___24)
+dmt_update_past$dmtlist_past_year___25 <- gsub("1", "Ponvory", dmt_update_past$dmtlist_past_year___25)
+dmt_update_past$dmtlist_past_year___26 <- gsub("1", "Bafiertam", dmt_update_past$dmtlist_past_year___26)
+
+
+#combine all columns
+dmt_update_pastType <- dmt_update_past %>% gather(typeNumber, type, 2:27)
+dmt_update_pastType <- dmt_update_pastType[,c(1,54,55,56)]
+
+dmt_update_pastStart <- dmt_update_past %>% gather(startNumber, start, 28:53)
+dmt_update_pastStart <- dmt_update_pastStart[,c(1,54,55,56)]
+
+dmt_update_pastEnd <- dmt_update_past %>% gather(endNumber, end, 54:79)
+dmt_update_pastEnd <- dmt_update_pastEnd[,c(1,54,55,56)]
+
+dmt_update_past2 <- cbind(dmt_update_pastType, dmt_update_pastStart, dmt_update_pastEnd)
+
+dmt_update_past2 <- dmt_update_past2[,c("id_participant_l", "type", "start", "end", "dmt_past_year")]
+
+#account for y/n question for promote samples
+dmt_update_past2$type <- ifelse(
+    ( 
+        is.na(dmt_update_past2$type) &
+          dmt_update_past2$dmt_past_year==0
+    ),
+    dmt_update_past2$dmt_past_year,  #puts this where conditions are met
+    dmt_update_past2$type         #puts this where conditions are not met
+)
+dmt_update_past2$type <- gsub("0", "None", dmt_update_past2$type)
+
+dmt_update_past2 <- dmt_update_past2 %>% filter(!is.na(type))
+names(dmt_update_past2)[1] <- 'id_participant'
+
+#dmt_update_past2$start <- as.Date(dmt_update_past2$start)
+dmt_update_past2 <- dmt_update_past2 %>% filter(!str_detect(type, "Other"))
+dmt_update_past2$end <- format(as.POSIXct(dmt_update_past2$end, format = "%Y-%m-%d"), "%Y-%m-%d")
+dmt_update_past2 <- dmt_update_past2[,-c(5)]
+
+#change empty start dates to end date- both dates were reported, not using survey date to fill in missing starts b/c these are all past dmts
+dmt_update_past2[dmt_update_past2 == ""] <- NA
+dmt_update_past2 <- dmt_update_past2 %>%
+  mutate_all(as.character)
+dmt_update_past2$start <- ifelse(
+    ( 
+        is.na(dmt_update_past2$start)
+    ),
+    dmt_update_past2$end,  #puts this where conditions are met
+    dmt_update_past2$start         #puts this where conditions are not met
+)
+
+```
+
+
+#COVID Longitudinal
+##Baseline- Now
+```{r}
+dmt_base_now <- covid[,c("id_participant_l", "covid19_baseline_timestamp", "dmtlist_now___1", "dmtlist_now___2", "dmtlist_now___3", "dmtlist_now___4", "dmtlist_now___5", "dmtlist_now___6", "dmtlist_now___7", "dmtlist_now___8", "dmtlist_now___9", "dmtlist_now___10", "dmtlist_now___11", "dmtlist_now___12", "dmtlist_now___13", "dmtlist_now___14", "dmtlist_now___15", "dmtlist_now___16", "dmtlist_now___17", "dmtlist_now___18", "dmtlist_now___19", "dmtlist_now___20", "dmtlist_now___21", "dmtlist_now___22", "dmtlist_now___23", "dmtlist_now___24", "dmt_now_aubagio_start", "dmt_now_avonex_start", "dmt_now_betaseron_start", "dmt_now_copaxone_start", "dmt_now_extavia_start", "dmt_now_gilenya_start", "dmt_now_novantrone_start", "dmt_now_plegridy_start", "dmt_now_rebif_start", "dmt_now_tecfidera_start", "dmt_now_tysabri_start", "dmt_now_other", "dmt_now_rituxan_start", "dmt_now_zinbryta_start", "dmt_now_ocrevus_start", "dmt_now_lemtrada_start", "dmt_now_cladribine_start", "dmt_now_siponimod_start", "dmt_now_vumerity_start", "dmt_now_zeposia_start", "dmt_now_kesimpta_start", "dmt_now_soliris_start", "dmt_now_uplizna_start", "dmt_now_enspryng_start", "dmt_now")]
+
+#get rid of all the 0s and switch with NAs
+dmt_base_now <- dmt_base_now %>% mutate(across(starts_with('dmtlist'), ~replace(., . == 0, NA)))
+#change the 1s to the number of the actual drug
+  #now dmts
+dmt_base_now$dmtlist_now___1 <- gsub("1", "Aubagio", dmt_base_now$dmtlist_now___1)
+dmt_base_now$dmtlist_now___2 <- gsub("1", "Avonex", dmt_base_now$dmtlist_now___2)
+dmt_base_now$dmtlist_now___3 <- gsub("1", "Betaseron", dmt_base_now$dmtlist_now___3)
+dmt_base_now$dmtlist_now___4 <- gsub("1", "Copaxone", dmt_base_now$dmtlist_now___4)
+dmt_base_now$dmtlist_now___5 <- gsub("1", "Extavia", dmt_base_now$dmtlist_now___5)
+dmt_base_now$dmtlist_now___6 <- gsub("1", "Gilenya", dmt_base_now$dmtlist_now___6)
+dmt_base_now$dmtlist_now___7 <- gsub("1", "Novantrone", dmt_base_now$dmtlist_now___7)
+dmt_base_now$dmtlist_now___8 <- gsub("1", "Plegridy", dmt_base_now$dmtlist_now___8)
+dmt_base_now$dmtlist_now___9 <- gsub("1", "Rebif", dmt_base_now$dmtlist_now___9)
+dmt_base_now$dmtlist_now___10 <- gsub("1", "Tecfidera", dmt_base_now$dmtlist_now___10)
+dmt_base_now$dmtlist_now___11 <- gsub("1", "Tysabri", dmt_base_now$dmtlist_now___11)
+dmt_base_now$dmtlist_now___12 <- gsub("1", "Other", dmt_base_now$dmtlist_now___12)
+dmt_base_now$dmtlist_now___13 <- gsub("1", "Rituxan", dmt_base_now$dmtlist_now___13)
+dmt_base_now$dmtlist_now___14 <- gsub("1", "Zinbryta", dmt_base_now$dmtlist_now___14)
+dmt_base_now$dmtlist_now___15 <- gsub("1", "Ocrevus", dmt_base_now$dmtlist_now___15)
+dmt_base_now$dmtlist_now___16 <- gsub("1", "Lemtrada", dmt_base_now$dmtlist_now___16)
+dmt_base_now$dmtlist_now___17 <- gsub("1", "Mavenclad", dmt_base_now$dmtlist_now___17)
+dmt_base_now$dmtlist_now___18 <- gsub("1", "Mayzent", dmt_base_now$dmtlist_now___18)
+dmt_base_now$dmtlist_now___19 <- gsub("1", "Vumerity", dmt_base_now$dmtlist_now___19)
+dmt_base_now$dmtlist_now___20 <- gsub("1", "Zeposia", dmt_base_now$dmtlist_now___20)
+dmt_base_now$dmtlist_now___21 <- gsub("1", "Kesimpta", dmt_base_now$dmtlist_now___21)
+dmt_base_now$dmtlist_now___22 <- gsub("1", "Soliris", dmt_base_now$dmtlist_now___22)
+dmt_base_now$dmtlist_now___23 <- gsub("1", "Uplizna", dmt_base_now$dmtlist_now___23)
+dmt_base_now$dmtlist_now___24 <- gsub("1", "Enspryng", dmt_base_now$dmtlist_now___24)
+
+#combine all columns
+dmt_base_nowType <- dmt_base_now %>% gather(typeNumber, type, 3:26)
+dmt_base_nowType <- dmt_base_nowType[,c(1,2,27,28,29)]
+
+dmt_base_nowStart <- dmt_base_now %>% gather(startNumber, start, 27:50)
+dmt_base_nowStart <- dmt_base_nowStart[,c(1,2,27,28,29)]
+dmt_base_now2 <- cbind(dmt_base_nowType, dmt_base_nowStart)
+  #end is the survey date
+
+dmt_base_now2 <- dmt_base_now2[,c("id_participant_l", "type", "start", "covid19_baseline_timestamp", "dmt_now")]
+
+#account for y/n question for promote samples
+dmt_base_now2$type <- ifelse(
+    ( 
+        is.na(dmt_base_now2$type) &
+          dmt_base_now2$dmt_now==0
+    ),
+    dmt_base_now2$dmt_now,  #puts this where conditions are met
+    dmt_base_now2$type         #puts this where conditions are not met
+)
+dmt_base_now2$type <- gsub("0", "None", dmt_base_now2$type)
+
+dmt_base_now2 <- dmt_base_now2 %>% filter(!is.na(type))
+names(dmt_base_now2)[1] <- 'id_participant'
+names(dmt_base_now2)[4] <- 'end'
+dmt_base_now2$end <- format(as.POSIXct(dmt_base_now2$end, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+dmt_base_now2 <- dmt_base_now2[,-c(5)]
+
+#change empty start dates to survey completion date
+dmt_base_now2[dmt_base_now2 == ""] <- NA
+dmt_base_now2 <- dmt_base_now2 %>%
+  mutate_all(as.character)
+dmt_base_now2$start <- ifelse(
+    ( 
+        is.na(dmt_base_now2$start)
+    ),
+    dmt_base_now2$end,  #puts this where conditions are met
+    dmt_base_now2$start         #puts this where conditions are not met
+)
+
+```
+##Baseline- Past
+```{r}
+dmt_base_past <- covid[,c("id_participant_l", "covid19_baseline_timestamp", "dmtlist_past___1", "dmtlist_past___2", "dmtlist_past___3", "dmtlist_past___4", "dmtlist_past___5", "dmtlist_past___6", "dmtlist_past___7", "dmtlist_past___8", "dmtlist_past___9", "dmtlist_past___10", "dmtlist_past___11", "dmtlist_past___12", "dmtlist_past___13", "dmtlist_past___14", "dmtlist_past___15", "dmtlist_past___16", "dmtlist_past___17", "dmtlist_past___18", "dmtlist_past___19", "dmtlist_past___20", "dmtlist_past___21", "dmtlist_past___22", "dmtlist_past___23", "dmtlist_past___24", "dmt_past_aubagio_start", "dmt_past_avonex_start", "dmt_past_betaseron_start", "dmt_past_copaxon_start", "dmt_past_extavia_start", "dmt_past_gilenya_start", "dmt_past_novantrone_start", "dmt_past_plegridy_start", "dmt_past_rebif_start", "dmt_past_tecfidera_start", "dmt_past_tysabri_start", "dmt_past_other", "dmt_past_rituxan_start", "dmt_past_zinbryta_start", "dmt_past_ocrevus_start", "dmt_past_lemtrada_start", "dmt_past_cladribine_start", "dmt_past_siponimod_start", "dmt_past_vumerity_start", "dmt_past_zeposia_start", "dmt_past_kesimpta_start", "dmt_past_soliris_start", "dmt_past_uplizna_start", "dmt_past_enspryng_start", "dmt_past")]
+
+#get rid of all the 0s and switch with NAs
+dmt_base_past <- dmt_base_past %>% mutate(across(starts_with('dmtlist'), ~replace(., . == 0, NA)))
+#change the 1s to the number of the actual drug
+  #now dmts
+dmt_base_past$dmtlist_past___1 <- gsub("1", "Aubagio", dmt_base_past$dmtlist_past___1)
+dmt_base_past$dmtlist_past___2 <- gsub("1", "Avonex", dmt_base_past$dmtlist_past___2)
+dmt_base_past$dmtlist_past___3 <- gsub("1", "Betaseron", dmt_base_past$dmtlist_past___3)
+dmt_base_past$dmtlist_past___4 <- gsub("1", "Copaxone", dmt_base_past$dmtlist_past___4)
+dmt_base_past$dmtlist_past___5 <- gsub("1", "Extavia", dmt_base_past$dmtlist_past___5)
+dmt_base_past$dmtlist_past___6 <- gsub("1", "Gilenya", dmt_base_past$dmtlist_past___6)
+dmt_base_past$dmtlist_past___7 <- gsub("1", "Novantrone", dmt_base_past$dmtlist_past___7)
+dmt_base_past$dmtlist_past___8 <- gsub("1", "Plegridy", dmt_base_past$dmtlist_past___8)
+dmt_base_past$dmtlist_past___9 <- gsub("1", "Rebif", dmt_base_past$dmtlist_past___9)
+dmt_base_past$dmtlist_past___10 <- gsub("1", "Tecfidera", dmt_base_past$dmtlist_past___10)
+dmt_base_past$dmtlist_past___11 <- gsub("1", "Tysabri", dmt_base_past$dmtlist_past___11)
+dmt_base_past$dmtlist_past___12 <- gsub("1", "Other", dmt_base_past$dmtlist_past___12)
+dmt_base_past$dmtlist_past___13 <- gsub("1", "Rituxan", dmt_base_past$dmtlist_past___13)
+dmt_base_past$dmtlist_past___14 <- gsub("1", "Zinbryta", dmt_base_past$dmtlist_past___14)
+dmt_base_past$dmtlist_past___15 <- gsub("1", "Ocrevus", dmt_base_past$dmtlist_past___15)
+dmt_base_past$dmtlist_past___16 <- gsub("1", "Lemtrada", dmt_base_past$dmtlist_past___16)
+dmt_base_past$dmtlist_past___17 <- gsub("1", "Mavenclad", dmt_base_past$dmtlist_past___17)
+dmt_base_past$dmtlist_past___18 <- gsub("1", "Mayzent", dmt_base_past$dmtlist_past___18)
+dmt_base_past$dmtlist_past___19 <- gsub("1", "Vumerity", dmt_base_past$dmtlist_past___19)
+dmt_base_past$dmtlist_past___20 <- gsub("1", "Zeposia", dmt_base_past$dmtlist_past___20)
+dmt_base_past$dmtlist_past___21 <- gsub("1", "Kesimpta", dmt_base_past$dmtlist_past___21)
+dmt_base_past$dmtlist_past___22 <- gsub("1", "Soliris", dmt_base_past$dmtlist_past___22)
+dmt_base_past$dmtlist_past___23 <- gsub("1", "Uplizna", dmt_base_past$dmtlist_past___23)
+dmt_base_past$dmtlist_past___24 <- gsub("1", "Enspryng", dmt_base_past$dmtlist_past___24)
+
+
+#combine all columns
+dmt_base_pastType <- dmt_base_past %>% gather(typeNumber, type, 3:26)
+dmt_base_pastType <- dmt_base_pastType[,c(1,2,27,28,29)]
+
+dmt_base_pastStart <- dmt_base_past %>% gather(startNumber, start, 27:50)
+dmt_base_pastStart <- dmt_base_pastStart[,c(1,2,27,28,29)]
+dmt_base_past2 <- cbind(dmt_base_pastType, dmt_base_pastStart)
+  #no end dates
+
+dmt_base_past2 <- dmt_base_past2[,c("id_participant_l", "type", "start", "dmt_past")]
+
+#account for y/n question for promote samples
+dmt_base_past2$type <- ifelse(
+    ( 
+        is.na(dmt_base_past2$type) &
+          dmt_base_past2$dmt_past==0
+    ),
+    dmt_base_past2$dmt_past,  #puts this where conditions are met
+    dmt_base_past2$type         #puts this where conditions are not met
+)
+dmt_base_past2$type <- gsub("0", "None", dmt_base_past2$type)
+
+dmt_base_past2 <- dmt_base_past2 %>% filter(!is.na(type))
+names(dmt_base_past2)[1] <- 'id_participant'
+dmt_base_past2$end <- NA
+dmt_base_past2 <- dmt_base_past2[,-c(4)]
+
+#don't change end dates to start date when not available- there were no end dates reported, can't use survey date b/c these are all past dmts
+dmt_base_past2[dmt_base_past2 == ""] <- NA
+dmt_base_past2 <- dmt_base_past2 %>%
+  mutate_all(as.character)
+
+
+```
+
+##DMT Changes
+```{r}
+#Monthly and Quarterly surveys
+dmt_covid_changes <- covid[,c("id_participant_l", "covid19_baseline_timestamp", "dmt_stop_baseline", "dmt_before_change_baseline", "dmt_change_after_baseline", "covid19_monthly_timestamp", "dmt_stop_monthly", "dmt_before_change_monthly", "dmt_change_after_monthly", "covid19_quarterly_timestamp", "dmt_stop_3m", "dmt_before_change_3m", "dmt_change_after_3m")]
+
+dmt_covid_changesType <- dmt_covid_changes %>% gather(typeNumber, type, 3,4,5,7,8,9,11,12,13)
+dmt_covid_changesType <- dmt_covid_changesType[,c(1,5,6)]
+
+dmt_covid_changesStart <- dmt_covid_changes %>% gather(startNumber, start, 2,6,10)
+dmt_covid_changesStart <- dmt_covid_changesStart[,c(1,11,12)]
+dmt_covid_changes2 <- cbind(dmt_covid_changesType, dmt_covid_changesStart)
+
+dmt_covid_changes2 <- dmt_covid_changes2[,c("id_participant_l", "type", "start")]
+dmt_covid_changes2 <- dmt_covid_changes2 %>% filter(!is.na(type))
+names(dmt_covid_changes2)[1] <- 'id_participant'
+dmt_covid_changes2$end <- NA
+
+dmt_covid_changes2$type = factor(dmt_covid_changes2$type, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24), labels = c("Aubagio", "Avonex", "Betaseron", "Copaxone", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada", "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "Kesimpta", "Soliris", "Uplizna", "Enspryng"))
+
+#don't change end dates to start date when not available- there were no end dates reported
+dmt_covid_changes2[dmt_covid_changes2 == ""] <- NA
+dmt_covid_changes2 <- dmt_covid_changes2 %>%
+  mutate_all(as.character)
+
+```
+
+
+#COVID Vaccine
+```{r}
+dmt_vaccine <- vaccine[,c("id_participant_l", "dtcoviddx", "dmt", "vb_date", "vb_msnmo_dmt")]
+
+dmt_vaccineType <- dmt_vaccine %>% gather(typeNumber, type, 3,5)
+dmt_vaccineType <- dmt_vaccineType[,c(1,4,5)]
+
+dmt_vaccineStart <- dmt_vaccine %>% gather(startNumber, start, 2,4)
+dmt_vaccineStart <- dmt_vaccineStart[,c(1,4,5)]
+
+dmt_vaccine2 <- cbind(dmt_vaccineType, dmt_vaccineStart)
+
+dmt_vaccine2 <- dmt_vaccine2[,c("id_participant_l", "type", "start")]
+dmt_vaccine2 <- dmt_vaccine2 %>% filter(!is.na(type))
+names(dmt_vaccine2)[1] <- 'id_participant'
+dmt_vaccine2$end <- NA
+
+dmt_vaccine2$type = factor(dmt_vaccine2$type, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25), labels = c("Aubagio", "Avonex", "Betaseron", "Copaxone", "Enspryng", "Extavia", "Gilenya", "Kesimpta", "Lemtrada", "Mavenclad", "Mayzent", "Novantrone", "Ocrevus", "Plegridy", "Rebif", "Rituxan", "Soliris", "Tecfidera", "Tysabri", "Uplizna", "Vumerity", "Zeposia", "Zinbryta", "Other", "None"))
+
+#don't change end dates to start date when not available- there were no end dates reported
+dmt_vaccine2[dmt_vaccine2 == ""] <- NA
+dmt_vaccine2 <- dmt_vaccine2 %>%
+  mutate_all(as.character)
+
+```
+
+#PreProbiotic
+```{r}
+dmt_prepro <- prepro[,c("promote_id", "dmt")]
+dmt_prepro <- dmt_prepro %>% filter(!is.na(dmt))
+dmt_prepro$dmt = factor(dmt_prepro$dmt, levels = c(1,2), labels = c("Ocrevus", "Rituxan"))
+names(dmt_prepro)[1] <- 'id_participant'
+names(dmt_prepro)[2] <- 'type'
+dmt_prepro$start <- NA
+dmt_prepro$end <- NA
+
+```
+
+#PASC
+```{r}
+dmt_pasc <- pasc[,c("id_participant", "postacute_sequelae_of_sarscov2_timestamp", "dmt", "dmt_change_date1", "dmt_change_drug1", "dmt_change_date2", "dmt_change_drug2", "dmt_change_date3", "dmt_change_drug3")]
+
+dmt_pascType <- dmt_pasc %>% gather(typeNumber, type, 3,5,7,9)
+dmt_pascType <- dmt_pascType[,c(1,6,7)]
+
+dmt_pascStart <- dmt_pasc %>% gather(startNumber, start, 2,4,6,8)
+dmt_pascStart <- dmt_pascStart[,c(1,6,7)]
+
+dmt_pasc2 <- cbind(dmt_pascType, dmt_pascStart)
+
+dmt_pasc2 <- dmt_pasc2[,c("id_participant", "type", "start")]
+dmt_pasc2 <- dmt_pasc2 %>% filter(!is.na(type))
+names(dmt_pasc2)[1] <- 'id_participant'
+dmt_pasc2$end <- NA
+dmt_pasc2$start <- format(as.POSIXct(dmt_pasc2$start, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+
+dmt_pasc2$type = factor(dmt_pasc2$type, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,99), labels = c("Aubagio", "Avonex", "Betaseron", "Copaxone", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada", "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "Kesimpta", "Soliris", "Uplizna", "Enspryng", "Ponvory", "Bafiertam", "None"))
+
+#don't change end dates to start date when not available- there were no end dates reported
+dmt_pasc2[dmt_pasc2 == ""] <- NA
+dmt_pasc2 <- dmt_pasc2 %>%
+  mutate_all(as.character)
+
+```
+
+#Combine all & Export
+```{r}
+#Combine all source files
+dmt_all <- rbind(dmt_hx2, dmt_enroll, dmt_blood, dmt_stool, dmt_csf, dmt_legacy_now2, dmt_legacy_past2, dmt_sro_now2, dmt_sro_past2, dmt_update_now2, dmt_update_past2, dmt_base_now2, dmt_base_past2, dmt_covid_changes2, dmt_vaccine2, dmt_prepro, dmt_pasc2, stringsAsFactors = FALSE)
+#ES: I altered this (above) to only combine info from dmt_enroll, dmt_blood, dmt_hx2 (and then I undid it)
+#dmt_all <- rbind(dmt_hx2, dmt_enroll, dmt_blood, stringsAsFactors = FALSE)
+dmt_all <- unique(dmt_all)
+
+#change words in "other start date" to NA- they don't qualify
+dmt_all$start <- ifelse(
+    ( 
+        str_detect(dmt_all$type, "Other") &
+          (! str_detect(dmt_all$start, "20") | !str_detect(dmt_all$start, "19"))
+    ),
+    NA,  #puts this where conditions are met
+    dmt_all$start         #puts this where conditions are not met
+)
+
+dmt_all <- unique(dmt_all)  #9772 unique reported dmts- this includes same dmt reported with different start and end dates
+dmt_all <- dmt_all[order(dmt_all$id_participant, dmt_all$start), ]
+
+sum(table(unique(dmt_all$id_participant))) #2249 patients
+
+#add enrollment date
+enrollment <- longitudinal[,c("id_participant_l", "doe")]
+enrollment <- enrollment %>% filter(str_detect(doe, "20"))
+names(enrollment)[1] <- 'id_participant'
+enrollment <- enrollment %>% filter(str_detect(id_participant, "PRT"))
+dmt_all2 <- merge(dmt_all, enrollment, by='id_participant', all.x = TRUE)
+
+#ES: I altered this by hashtagging the last line to keep all start dates instead of filtering for the one closest to enrollment date
+#select the dmt start date closest to the enrollment date
+dmt_all2$start <- format(as.POSIXct(dmt_all2$start, format = "%Y-%m-%d"), "%Y-%m-%d")
+dmt_all2$doe <- format(as.POSIXct(dmt_all2$doe, format = "%Y-%m-%d"), "%Y-%m-%d")
+dmt_all2$diff <- round(abs((difftime(dmt_all2$start, dmt_all2$doe, units="weeks"))), digits = 2) #weeks between enrollment and dmt start date 
+dmt_all2 <- dmt_all2[order(dmt_all2$id_participant, dmt_all2$start), ]
+#dmt_all3 <- setDT(dmt_all2)[ , .SD[which.min(diff)], by = id_participant] #1482 patients
+dmt_all3 <- dmt_all2
+#Change the names to generic and brand per Dr. Xia's perferred syntax
+dmt_all3$type <- factor(dmt_all3$type,
+                               levels=c("Aubagio", "Avonex", "Betaseron", "Copaxone", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada", "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "Kesimpta", "Soliris", "Uplizna", "Enspryng", "Ponvory", "Bafiertam", "None"),
+                               labels=c("Teriflunomide (Aubagio)", "Interferon Beta-1a (Avonex)", "Interferon Beta-1b (Betaseron)", "Glatiramer acetate (Copaxone/ Glatopa)", "Interferon Beta-1b (Extavia)", "Fingolimod (Gilenya)", "Mitoxantrone (Novantrone)", "Interferon Beta-1a (Rebif)", "Dimethyl fumarate/BG12 (Tecfidera)", "Natalizumab (Tysabri)", "Other", "Alemtuzumab/ Campath (Lemtrada)",  "Ocrelizumab (Ocrevus)", "Pegylated interferon Beta-1a (Plegridy)", "Daclizumab (Zinbryta)", "Rituximab (Rituxan)", "Cladribine (Mavenclad)", "Siponimod (Mayzent)", "Diroximel Fumarate (Vumerity)", "Ozanimod (Zeposia)", "Ofatumumab (Kesimpta)", "Eculizumab (Soliris)", "Inebilizumab-cdon (Uplizna)", "Satralizumab-mwge (Enspryng)", "Ponesimod (Ponvory)", "Monomethyl Fumarate (Bafiertam)", "None"))
+
+#Add dmt class
+dmt_all3$class <- factor(dmt_all3$type, levels = c("Teriflunomide (Aubagio)", "Interferon Beta-1a (Avonex)", "Interferon Beta-1b (Betaseron)", "Glatiramer acetate (Copaxone/ Glatopa)", "Interferon Beta-1b (Extavia)", "Fingolimod (Gilenya)", "Mitoxantrone (Novantrone)", "Interferon Beta-1a (Rebif)", "Dimethyl fumarate/BG12 (Tecfidera)", "Natalizumab (Tysabri)", "Other", "Alemtuzumab/ Campath (Lemtrada)",  "Ocrelizumab (Ocrevus)", "Pegylated interferon Beta-1a (Plegridy)", "Daclizumab (Zinbryta)", "Rituximab (Rituxan)", "Cladribine (Mavenclad)", "Siponimod (Mayzent)", "Diroximel Fumarate (Vumerity)", "Ozanimod (Zeposia)", "Ofatumumab (Kesimpta)", "Eculizumab (Soliris)", "Inebilizumab-cdon (Uplizna)", "Satralizumab-mwge (Enspryng)", "Ponesimod (Ponvory)", "Monomethyl Fumarate (Bafiertam)", "None"),
+                         labels = c("pyrimidine blocker", "interferon-beta", "interferon-beta", "glatiramer acetate", "interferon-beta", "S1P R modulator", "cell proliferation blocker", "interferon-beta", "fumarate", "alpha4-integrin blocker", "Other", "chemotherapy",  "B cell depletion", "interferon-beta", "IL2R blocker", "B cell depletion", "purine analog", "S1P R modulator", "fumarate", "S1P R modulator", "B cell depletion", "C5 blocker", "B cell depletion", "IL6R blocker", "S1P R modulator", "fumarate", "None"))
+
+dmt_all3 <- merge(dmt_all3, enrollment, by='id_participant', all.y = TRUE)
+dmt_all3 <- dmt_all3 %>% filter(!str_detect(id_participant, "PRT23"))
+dmt_all3 <- dmt_all3[,c("id_participant", "type", "class", "start", "end")]
+dmt_all3$id_participant <- as.character(dmt_all3$id_participant)
+dmt_all3 <- dmt_all3[order(dmt_all3$id_participant), ]
+
+#Export
+write.csv(dmt_all3, "DMTs_enroll.csv")
+
+
+```
+
+#Table 1
+```{r}
+#Table 1- based on this query alone
+select(dmt_all3, c(type, class)) %>%
+  tbl_summary(statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
+              digits = all_continuous() ~ 2,
+              missing_text = "Missing",
+              label = list(type ~ "DMT at Enrollment", class ~ "DMT Class")) %>%
+  bold_labels()
+
+
+```
+
+
