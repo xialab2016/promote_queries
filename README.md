@@ -45,6 +45,16 @@ Descriptive statistics of the PROMOTE cohort including age, sex, race, ethnicity
 
    Output: Histogram of all total BLCS scores, histogram of all total BWCS scores. CSV files of all BLCS scores, CSV file of all BWCS scores.
 
+3. Center for Epidemiological Studies-Depression (CESD)
+
+   Version 1: 2024-04-02
+
+   Finds all CESD measure scores for the PROMOTE study
+
+   Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
+
+   Output: Histogram of all total CESD scores, histogram of all earliest total CESD scores, CSV file of all CESD scores.
+
 # DMT / relapse queries
 
 
