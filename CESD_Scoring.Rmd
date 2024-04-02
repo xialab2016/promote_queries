@@ -1,0 +1,166 @@
+---
+title: "PainQuery2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+
+# This code finds all cesd scores for PROMOTE participants
+  # Files needed: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, MissingIDs
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+#setwd("your_working_directory")
+
+longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+```
+
+#Legacy
+```{r}
+#legacy SRO
+cesdLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "cesd_1_bother", "cesd_2_appetite", "cesd_3_blues", "cesd_4_good", "cesd_5_mind", "cesd_6_depressed", "cesd_7_effort", "cesd_8_hopeful", "cesd_9_failure", "cesd_10_fearful", "cesd_11_restless", "cesd_12_happy", "cesd_13_talk", "cesd_14_lonely", "cesd_15_unfriendly", "cesd_16_enjoyed", "cesd_17_crying", "cesd_18_sad", "cesd_19_disliked", "cesd_20_getgoing")]
+names(cesdLeg)[2] <- 'cesd_date'
+
+```
+
+#Longitudinal
+```{r}
+#Longitudinal & update
+cesdLong <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "cesd_1_bother", "cesd_2_appetite", "cesd_3_blues", "cesd_4_good", "cesd_5_mind", "cesd_6_depressed", "cesd_7_effort", "cesd_8_hopeful", "cesd_9_failure", "cesd_10_fearful", "cesd_11_restless", "cesd_12_happy", "cesd_13_talk", "cesd_14_lonely", "cesd_15_unfriendly", "cesd_16_enjoyed", "cesd_17_crying", "cesd_18_sad", "cesd_19_disliked", "cesd_20_getgoing",
+                        "update_questionnaire_timestamp", "cesd_1_bother_843f0b", "cesd_2_appetite", "cesd_3_blues_250572", "cesd_4_good_0590ab", "cesd_5_mind_02695e", "cesd_6_depressed_ffb004", "cesd_7_effort_5e9070", "cesd_8_hopeful_766cb7", "cesd_9_failure_a4e73e", "cesd_10_fearful_314f89", "cesd_11_restless_948a59", "cesd_12_happy_c334ad", "cesd_13_talk_3176da", "cesd_14_lonely_3dd8ba", "cesd_15_unfriendly_33f04e", "cesd_16_enjoyed_2005c1", "cesd_17_crying_ef7d22", "cesd_18_sad_26261d", "cesd_19_disliked_d3c110", "cesd_20_getgoing_852a20")]
+names(cesdLong)[1] <- 'id_participant'
+names(cesdLong)[2] <- 'cesd_date'
+
+cesdLongDate <- cesdLong %>% gather(dateNumber, cesd_date, 2,23)
+cesdLongScore1 <- cesdLong %>% gather(scoreNumber1, cesd_1_bother, 3,24)
+cesdLongScore2 <- cesdLong %>% gather(scoreNumber2, cesd_2_appetite, 4,25)
+cesdLongScore3 <- cesdLong %>% gather(scoreNumber3, cesd_3_blues, 5,26)
+cesdLongScore4 <- cesdLong %>% gather(scoreNumber4, cesd_4_good, 6,27)
+cesdLongScore5 <- cesdLong %>% gather(scoreNumber5, cesd_5_mind, 7,28)
+cesdLongScore6 <- cesdLong %>% gather(scoreNumber6, cesd_6_depressed, 8,29)
+cesdLongScore7 <- cesdLong %>% gather(scoreNumber7, cesd_7_effort, 9,30)
+cesdLongScore8 <- cesdLong %>% gather(scoreNumber8, cesd_8_hopeful, 10,31)
+cesdLongScore9 <- cesdLong %>% gather(scoreNumber9, cesd_9_failure, 11,32)
+cesdLongScore10 <- cesdLong %>% gather(scoreNumber10, cesd_10_fearful, 12,33)
+cesdLongScore11 <- cesdLong %>% gather(scoreNumber11, cesd_11_restless, 13,34)
+cesdLongScore12 <- cesdLong %>% gather(scoreNumber12, cesd_12_happy, 14,35)
+cesdLongScore13 <- cesdLong %>% gather(scoreNumber13, cesd_13_talk, 15,36)
+cesdLongScore14 <- cesdLong %>% gather(scoreNumber14, cesd_14_lonely, 16,37)
+cesdLongScore15 <- cesdLong %>% gather(scoreNumber15, cesd_15_unfriendly, 17,38)
+cesdLongScore16 <- cesdLong %>% gather(scoreNumber16, cesd_16_enjoyed, 18,39)
+cesdLongScore17 <- cesdLong %>% gather(scoreNumber17, cesd_17_crying, 19,40)
+cesdLongScore18 <- cesdLong %>% gather(scoreNumber18, cesd_18_sad, 20,41)
+cesdLongScore19 <- cesdLong %>% gather(scoreNumber19, cesd_19_disliked, 21,42)
+cesdLongScore20 <- cesdLong %>% gather(scoreNumber20, cesd_20_getgoing, 22,43)
+
+cesdLong <- cbind(cesdLongDate, cesdLongScore1, cesdLongScore2, cesdLongScore3, cesdLongScore4, cesdLongScore5, cesdLongScore6, cesdLongScore7, cesdLongScore8, cesdLongScore9, cesdLongScore10, cesdLongScore11, cesdLongScore12, cesdLongScore13, cesdLongScore14, cesdLongScore15, cesdLongScore16, cesdLongScore17, cesdLongScore18, cesdLongScore19, cesdLongScore20)
+
+cesdLong<- cesdLong[,c("id_participant", "cesd_date", "cesd_1_bother", "cesd_2_appetite", "cesd_3_blues", "cesd_4_good", "cesd_5_mind", "cesd_6_depressed", "cesd_7_effort", "cesd_8_hopeful", "cesd_9_failure", "cesd_10_fearful", "cesd_11_restless", "cesd_12_happy", "cesd_13_talk", "cesd_14_lonely", "cesd_15_unfriendly", "cesd_16_enjoyed", "cesd_17_crying", "cesd_18_sad", "cesd_19_disliked", "cesd_20_getgoing")]
+
+```
+
+#Combine and score
+```{r}
+#Combine and score- 859 scores
+cesdAll <- rbind(cesdLong, cesdLeg)
+
+#reverse items
+cesdAll$cesd_4_good <- as.numeric(as.character(factor(cesdAll$cesd_4_good, levels=c(0,1,2,3), labels=c(3,2,1,0))))
+cesdAll$cesd_8_hopeful <- as.numeric(as.character(factor(cesdAll$cesd_8_hopeful, levels=c(0,1,2,3), labels=c(3,2,1,0))))
+cesdAll$cesd_12_happy <- as.numeric(as.character(factor(cesdAll$cesd_12_happy, levels=c(0,1,2,3), labels=c(3,2,1,0))))
+cesdAll$cesd_16_enjoyed <- as.numeric(as.character(factor(cesdAll$cesd_16_enjoyed, levels=c(0,1,2,3), labels=c(3,2,1,0))))
+
+#remove scores with 4 or more NAs
+cesdAll$na_count <- rowSums(is.na(cesdAll))
+cesdAll <- cesdAll %>% filter(na_count<4)
+
+#add all items
+cesdAll$cesd_total <- rowSums(cesdAll[,c(3:22)], na.rm = TRUE)
+cesdAll$cesd_date <- as.Date(cesdAll$cesd_date)
+
+#export- all scores for all participants
+write.csv(cesdAll, "cesd.csv")
+
+```
+
+#Basic stats
+```{r}
+#1615 scores
+mean(cesdAll$cesd_total)  #mean of all scores is 13.85
+sd(cesdAll$cesd_total)  #sd is 11.41
+range(cesdAll$cesd_total)  #range is 0-57
+median(cesdAll$cesd_total)  #median is 12
+
+sum(table(unique(cesdAll$id_participant)))  #1010 participants w/ at least 1 score
+
+test <- data.frame(table(cesdAll$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 1.60 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #413 participants with 1 score
+  #589 participants with 2 scores
+  #8 participants with 3 scores
+
+#finds info for first score per participant only
+first <- cesdAll %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(cesd_date, default = first(cesd_date), order_by = cesd_date) - cesd_date)
+first <- first %>% filter(diff==0)
+  #first scores for 940 participants
+mean(first$cesd_total)  #mean is 13.62
+sd(first$cesd_total)  #sd is 11.26
+range(first$cesd_total)  #range is 0-57
+median(first$cesd_total)  #median is 8
+
+```
+
+#Visualization
+```{r}
+hist(cesdAll$cesd_total)
+
+cesdAll$cesd_date  <- as.Date(cesdAll$cesd_date)
+cesd_earliest = aggregate(cesdAll$cesd_date,by=list(cesdAll$id_participant),min)
+names(cesd_earliest)[1] <- 'id_participant'
+names(cesd_earliest)[2] <- 'cesd_date'
+cesd_earliest <- merge(cesd_earliest, cesdAll, by.x=c("id_participant", "cesd_date"), by.y=c("id_participant", "cesd_date"), all.x = TRUE)
+
+
+ggplot(cesd_earliest, aes(cesd_total)) +
+    geom_histogram(colour="#e28939", fill="#eb9950", bins = 58) +
+    theme_linedraw() +
+    geom_vline(aes(xintercept=mean(cesd_total)), color="#E74C3C", linetype="dashed", size=.5) +
+    scale_x_continuous(breaks = seq(0, 60, by=10)) +
+    scale_y_continuous(breaks = seq(0, 100, by=10)) +
+    theme(plot.title = element_text(hjust = 0.5)) + xlab("CESD Score") + ylab("Number of Participants") + 
+  theme(axis.title.x = element_text(margin = margin(t = 15)), axis.title.y = element_text(margin = margin(r=15)))
+
+```
+
+
