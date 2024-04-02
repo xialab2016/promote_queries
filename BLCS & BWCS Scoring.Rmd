@@ -1,0 +1,265 @@
+---
+title: "BLCS & BWCS Scoring"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+
+# This code finds all BLCS & BWCS measure scores for the PROMOTE Study
+  # BLCS: Longitudinal SRO & Update, Legacy SRO
+  # BWCS: Longitudinal SRO & Update, Legacy SRO, Prebiotic
+
+#Files used: Longitudinal 1, Longitudinal 2, Legacy PQ/SRO, Missing Identifiers, Pre/Pro
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+#setwd("your_working_directory")
+
+longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+prebiotic <- read.csv("PrePro.csv") #Export of the whole pre/probiotic project
+prebiotic <- prebiotic %>%
+  group_by(record_id) %>%
+  mutate(promote_id = first(promote_id))
+
+#set up rounding function (will round 0.5 -> 1 instead of 0)
+round.off <- function (x, digits=0) 
+{
+  posneg = sign(x)
+  z = trunc(abs(x) * 10 ^ (digits + 1)) / 10
+  z = floor(z * posneg + 0.5) / 10 ^ digits
+  return(z)
+}
+
+```
+
+#BLCS
+##Legacy
+```{r}
+#SRO
+blcsLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "blcs_1_bladdercontr", "blcs_2_bladdercontr_near", "blcs_3_bladderimpact", "blcs_overall")]
+names(blcsLeg)[2] <- 'blcs_date'
+names(blcsLeg)[3] <- 'blcs_1_control'
+names(blcsLeg)[4] <- 'blcs_2_near'
+names(blcsLeg)[5] <- 'blcs_3_impact'
+names(blcsLeg)[6] <- 'blcs_4_overall'
+
+```
+
+##Longitudinal
+```{r}
+#SRO & Update
+blcsLong <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "blcs_1_bladdercontr", "blcs_2_bladdercontr_near", "blcs_3_bladderimpact", "blcs_overall",
+                           "update_questionnaire_timestamp", "blcs_1_bladdercontr_36572f", "blcs_2_bladdercontr_near_a7653d", "blcs_3_bladderimpact_af0698", "blcs_overall_08bcd0")]
+
+blcsLongDate <- blcsLong %>% gather(dateNumber, blcs_date, 2,7)
+blcsLongScore1 <- blcsLong %>% gather(scoreNumber1, blcs_1_control, 3,8)
+blcsLongScore2 <- blcsLong %>% gather(scoreNumber2, blcs_2_near, 4,9)
+blcsLongScore3 <- blcsLong %>% gather(scoreNumber3, blcs_3_impact, 5,10)
+blcsLongScore4 <- blcsLong %>% gather(scoreNumber4, blcs_4_overall, 6,11)
+
+blcsLong <- cbind(blcsLongDate, blcsLongScore1, blcsLongScore2, blcsLongScore3, blcsLongScore4)
+blcsLong <- blcsLong[,c("id_participant_l", "blcs_date", "blcs_1_control", "blcs_2_near", "blcs_3_impact", "blcs_4_overall")]
+names(blcsLong)[1] <- 'id_participant'
+
+
+```
+
+##Combine and score
+```{r}
+#combine
+blcs_All <- rbind(blcsLeg, blcsLong)
+
+#fix slider (0-100, should be 0-10)
+blcs_All$blcs_4_overall <- round.off((blcs_All$blcs_4_overall/10), digits = 0)
+
+#score
+blcs_All$blcs_total <- rowSums(blcs_All[,c(3:6)])
+blcs_All <- blcs_All %>% filter(!is.na(blcs_total))
+
+#export- file contains all blcs scores for all participants
+write.csv(blcs_All, "blcs.csv")
+
+```
+
+##Basic stats
+```{r}
+#2338 scores
+mean(blcs_All$blcs_total)  #mean of All scores is 4.69
+sd(blcs_All$blcs_total)  #sd is 5.57
+range(blcs_All$blcs_total)  #range is 0-22
+median(blcs_All$blcs_total)  #median is 2
+
+sum(table(unique(blcs_All$id_participant)))  #1171 participants w/ at least 1 score
+
+test <- data.frame(table(blcs_All$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 2 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #589 participants with 1 score
+  #261 participants with 2 scores
+  #136 participants with 3 scores
+
+#finds info for first chronological score per participant
+blcs_All$blcs_date <- as.Date(blcs_All$blcs_date)
+first <- blcs_All %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(blcs_date, default = first(blcs_date), order_by = blcs_date) - blcs_date)
+first <- first %>% filter(diff==0)
+  #first scores for 1078 participants
+mean(first$blcs_total)  #mean is 4.4
+sd(first$blcs_total)  #sd is 5.4
+range(first$blcs_total)  #range is 0-22
+median(first$blcs_total)  #median is 2
+
+```
+
+##Visualization
+```{r}
+hist(blcs_All$blcs_total)
+
+ggplot(blcs_All, aes(blcs_total)) +
+    geom_histogram(colour="#4d3230", fill="blue", bins = 23) +
+    theme_minimal() +
+    scale_x_continuous(breaks = seq(0, 22, by=2)) +
+    scale_y_continuous(breaks = seq(0, 1000, by=100)) +
+    labs(title = "All BLCS Scores") + theme(plot.title = element_text(hjust = 0.5)) + xlab("BLCS Score") + ylab("# of Scores")
+
+
+```
+
+
+#BWCS
+##Legacy
+```{r}
+#SRO
+bwcsLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "bwcs_1_constipated", "bwcs_2_bowelcontr", "bwcs_3_bowelcontr_near", "bwcs_4_bowelimpact", "bwcs_overall")]
+names(bwcsLeg)[2] <- 'bwcs_date'
+names(bwcsLeg)[3] <- 'bwcs_1_constipated'
+names(bwcsLeg)[4] <- 'bwcs_2_control'
+names(bwcsLeg)[5] <- 'bwcs_3_near'
+names(bwcsLeg)[6] <- 'bwcs_4_impact'
+names(bwcsLeg)[7] <- 'bwcs_5_overall'
+
+```
+
+##Longitudinal
+```{r}
+#SRO & Update
+bwcsLong <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "bwcs_1_constipated", "bwcs_2_bowelcontr", "bwcs_3_bowelcontr_near", "bwcs_4_bowelimpact", "bwcs_overall",
+                           "update_questionnaire_timestamp", "bwcs_1_constipated_e0ae02", "bwcs_2_bowelcontr_701478", "bwcs_3_bowelcontr_near_927153", "bwcs_4_bowelimpact_a660ff", "bwcs_overall_7f1eff")]
+
+bwcsLongDate <- bwcsLong %>% gather(dateNumber, bwcs_date, 2,8)
+bwcsLongScore1 <- bwcsLong %>% gather(scoreNumber1, bwcs_1_constipated, 3,9)
+bwcsLongScore2 <- bwcsLong %>% gather(scoreNumber2, bwcs_2_control, 4,10)
+bwcsLongScore3 <- bwcsLong %>% gather(scoreNumber3, bwcs_3_near, 5,11)
+bwcsLongScore4 <- bwcsLong %>% gather(scoreNumber4, bwcs_4_impact, 6,12)
+bwcsLongScore5 <- bwcsLong %>% gather(scoreNumber4, bwcs_5_overall, 7,13)
+
+bwcsLong <- cbind(bwcsLongDate, bwcsLongScore1, bwcsLongScore2, bwcsLongScore3, bwcsLongScore4, bwcsLongScore5)
+bwcsLong <- bwcsLong[,c("id_participant_l", "bwcs_date", "bwcs_1_constipated", "bwcs_2_control", "bwcs_3_near", "bwcs_4_impact", "bwcs_5_overall")]
+names(bwcsLong)[1] <- 'id_participant'
+
+
+```
+
+##Prebiotic
+```{r}
+bwcsPre <- prebiotic[,c("promote_id", "bowel_control_scale_5_items_bwcs_timestamp", "been_constipated", "lost_control_of_your_bowel", "u_almost_u_lost_control_of", "altered_your_activities_be", "during_the_u_past_4_weeks")]
+
+colnames(bwcsPre) <- c("id_participant", "bwcs_date", "bwcs_1_constipated", "bwcs_2_control", "bwcs_3_near", "bwcs_4_impact", "bwcs_5_overall")
+
+```
+
+
+##Combine and score
+```{r}
+#combine
+bwcs_All <- rbind(bwcsLeg, bwcsLong, bwcsPre)
+
+#fix slider (0-100, should be 0-10)
+bwcs_All$bwcs_5_overall <- round.off((bwcs_All$bwcs_5_overall/10), digits = 0)
+
+#score
+bwcs_All$bwcs_total <- rowSums(bwcs_All[,c(3:7)])
+bwcs_All <- bwcs_All %>% filter(!is.na(bwcs_total))
+
+#export- file contains all bwcs scores for all participants
+write.csv(bwcs_All, "bwcs.csv")
+
+```
+
+##Basic stats
+```{r}
+#1118 scores
+mean(bwcs_All$bwcs_total)  #mean of All scores is 3.5
+sd(bwcs_All$bwcs_total)  #sd is 4.4
+range(bwcs_All$bwcs_total)  #range is 0-25
+median(bwcs_All$bwcs_total)  #median is 2
+
+sum(table(unique(bwcs_All$id_participant)))  #1048 participants w/ at least 1 score
+
+test <- data.frame(table(bwcs_All$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 1.1 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #1023 participants with 1 score
+  #10 participants with 2 scores
+  #5 participants with 3 scores
+
+#info for first scores only
+bwcs_All$bwcs_date <- as.Date(bwcs_All$bwcs_date)
+first <- bwcs_All %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(bwcs_date, default = first(bwcs_date), order_by = bwcs_date) - bwcs_date)
+first <- first %>% filter(diff==0)
+  #first scores for 977 participants
+mean(first$bwcs_total)  #mean is 3.6
+sd(first$bwcs_total)  #sd is 4.5
+range(first$bwcs_total)  #range is 0-25
+median(first$bwcs_total)  #median is 2
+
+```
+
+##Visualization
+```{r}
+hist(bwcs_All$bwcs_total)
+
+ggplot(bwcs_All, aes(bwcs_total)) +
+    geom_histogram(colour="#4d3230", fill="blue", bins = 26) +
+    theme_minimal() +
+    scale_x_continuous(breaks = seq(0, 22, by=2)) +
+    scale_y_continuous(breaks = seq(0, 1000, by=100)) +
+    labs(title = "All BWCS Scores") + theme(plot.title = element_text(hjust = 0.5)) + xlab("BWCS Score") + ylab("# of Scores")
+
+```
+
+
+
+
