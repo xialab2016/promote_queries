@@ -887,7 +887,7 @@ cci_earliest <- cci_earliest %>% filter(!is.na(cci_total))
 cci_earliest <- cci_earliest %>% 
   group_by(id_participant) %>%
   slice(which.min(as.Date(timestamp, '%Y-%m-%d')))
-cci_earliest <- cci_earliest %>% filter((!str_detect(timestamp, "2023")))
+#cci_earliest <- cci_earliest %>% filter((!str_detect(timestamp, "2023")))
 write.csv(cci_earliest, "cci_earliest.csv")
 
 #most recent score
@@ -896,7 +896,7 @@ cci_recent <- cci_recent %>% filter(!is.na(cci_total))
 cci_recent <- cci_recent %>% 
   group_by(id_participant) %>%
   slice(which.max(as.Date(timestamp, '%Y-%m-%d')))
-cci_recent <- cci_recent %>% filter((!str_detect(timestamp, "2023")))
+#cci_recent <- cci_recent %>% filter((!str_detect(timestamp, "2023")))
 
 
 ```
