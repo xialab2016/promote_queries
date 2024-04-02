@@ -21,7 +21,15 @@ Descriptive statistics of the PROMOTE cohort including age, sex, race, ethnicity
 3. PBMC
 4. DNA
 5. Stool
-6. CSF
+6. Cerebrospinal fluid (CSF)
+
+   Version 1: 2024-04-02
+
+   Finds demographic information and dates of all CSF samples collected in the PROMOTE cohort
+
+   Input: PROMOTEDatabase
+
+   Output: Table of demographic summary of participants who have donated CSF samples, CSV file containing all CSF sample dates with the demographics of the donating participant.
 
 # Patient-reported outcome questionnaires
 
@@ -54,6 +62,7 @@ Descriptive statistics of the PROMOTE cohort including age, sex, race, ethnicity
    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
 
    Output: Histogram of all total CESD scores, histogram of all earliest total CESD scores, CSV file of all CESD scores.
+
 
 # DMT / relapse queries
 
