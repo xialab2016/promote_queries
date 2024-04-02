@@ -25,7 +25,7 @@ library(gtsummary)
 
 #Import Files
 ```{r}
-#setwd("your_working_directory")
+setwd("your_working_directory")
 
 database <- read.csv("database.csv") #Export of the whole PROMOTE database project
 database <- database %>% filter(!str_detect(id_participant, "_x"))
