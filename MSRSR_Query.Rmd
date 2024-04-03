@@ -1,0 +1,623 @@
+---
+title: "MSRSR_Query"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(dplyr)
+library(stringr)
+#library(ggplot2)
+library(tidyr)
+
+#Finds MSRSR values and median scores per year for all PROMOTE participants
+
+#Files used: PROMOTEDatabase, PROMOTE Longitudinal, Legacy, Missing IDs, Legacy SNQ, sensor, covid, vaccine, pre/pro
+
+#CHANGE FILE PATHS
+
+```
+
+#Import files
+```{r}
+database <- read.csv("database.csv") #Export of the whole database project
+database <- database %>% filter(str_detect(id_participant, "PRT"))
+database <- database %>% filter(!str_detect(id_participant, "_x"))
+
+long1 <- read.csv("long1.csv")
+long2 <- read.csv("long2.csv")
+long <- rbind(long1, long2)
+longitudinal <- long #Combined longitudinal projects
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+snq <- read.csv("Legacy_SNQ.csv") #Export of the whole PNQ Legacy project
+
+sensor <- read.csv("Sensor.csv") #Export of the whole sensor project
+
+covid <- read.csv("covid_long.csv") #Export of the whole original covid project
+
+vaccine <- read.csv("Vaccine_long.csv") #Export of the while covid vaccine project
+
+prepro <- read.csv("PrePro.csv") #Export of the whole pre/probiotic project
+
+pasc <-  read.csv("PASC.csv") #Export of the whole pasc project
+
+#set up for combining columns
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+
+```
+
+#MSRSR
+##EHR
+```{r}
+msrsr_hx <-  database[,c("id_participant", "msrsr_number", "msrsr_date_1", "msrsr_1_walking_1", "msrsr_2_arms_1", "msrsr_3_vision_1", "msrsr_4_speech_1", "msrsr_5_swallowing_1", "msrsr_6_cognition_1", "msrsr_7_sensation_1", "msrsr_8_controlling_1",
+                         "msrsr_date_2", "msrsr_1_walking_2", "msrsr_2_arms_2", "msrsr_3_vision_2", "msrsr_4_speech_2", "msrsr_5_swallowing_2", "msrsr_6_cognition_2", "msrsr_7_sensation_2", "msrsr_8_controlling_2",
+                         "msrsr_date_3", "msrsr_1_walking_3", "msrsr_2_arms_3", "msrsr_3_vision_3", "msrsr_4_speech_3", "msrsr_5_swallowing_3", "msrsr_6_cognition_3", "msrsr_7_sensation_3", "msrsr_8_controlling_3",
+                         "msrsr_date_4", "msrsr_1_walking_4", "msrsr_2_arms_4", "msrsr_3_vision_4", "msrsr_4_speech_4", "msrsr_5_swallowing_4", "msrsr_6_cognition_4", "msrsr_7_sensation_4", "msrsr_8_controlling_4",
+                         "msrsr_date_5", "msrsr_1_walking_5", "msrsr_2_arms_5", "msrsr_3_vision_5", "msrsr_4_speech_5", "msrsr_5_swallowing_5", "msrsr_6_cognition_5", "msrsr_7_sensation_5", "msrsr_8_controlling_5",
+                         "msrsr_date_6", "msrsr_1_walking_6", "msrsr_2_arms_6", "msrsr_3_vision_6", "msrsr_4_speech_6", "msrsr_5_swallowing_6", "msrsr_6_cognition_6", "msrsr_7_sensation_6", "msrsr_8_controlling_6",
+                         "msrsr_date_7", "msrsr_1_walking_7", "msrsr_2_arms_7", "msrsr_3_vision_7", "msrsr_4_speech_7", "msrsr_5_swallowing_7", "msrsr_6_cognition_7", "msrsr_7_sensation_7", "msrsr_8_controlling_7",
+                         "msrsr_date_8", "msrsr_1_walking_8", "msrsr_2_arms_8", "msrsr_3_vision_8", "msrsr_4_speech_8", "msrsr_5_swallowing_8", "msrsr_6_cognition_8", "msrsr_7_sensation_8", "msrsr_8_controlling_8",
+                        "msrsr_date_9", "msrsr_1_walking_9", "msrsr_2_arms_9", "msrsr_3_vision_9", "msrsr_4_speech_9", "msrsr_5_swallowing_9", "msrsr_6_cognition_9", "msrsr_7_sensation_9", "msrsr_8_controlling_9",
+                        "msrsr_date_10", "msrsr_1_walking_10", "msrsr_2_arms_10", "msrsr_3_vision_10", "msrsr_4_speech_10", "msrsr_5_swallowing_10", "msrsr_6_cognition_10", "msrsr_7_sensation_10", "msrsr_8_controlling_10",
+                        "msrsr_date_11", "msrsr_1_walking_11", "msrsr_2_arms_11", "msrsr_3_vision_11", "msrsr_4_speech_11", "msrsr_5_swallowing_11", "msrsr_6_cognition_11", "msrsr_7_sensation_11", "msrsr_8_controlling_11",
+                        "msrsr_date_12", "msrsr_1_walking_12", "msrsr_2_arms_12", "msrsr_3_vision_12", "msrsr_4_speech_12", "msrsr_5_swallowing_12", "msrsr_6_cognition_12", "msrsr_7_sensation_12", "msrsr_8_controlling_12",
+                        "msrsr_date_13", "msrsr_1_walking_13", "msrsr_2_arms_13", "msrsr_3_vision_13", "msrsr_4_speech_13", "msrsr_5_swallowing_13", "msrsr_6_cognition_13", "msrsr_7_sensation_13", "msrsr_8_controlling_13",
+                        "msrsr_date_14", "msrsr_1_walking_14", "msrsr_2_arms_14", "msrsr_3_vision_14", "msrsr_4_speech_14", "msrsr_5_swallowing_14", "msrsr_6_cognition_14", "msrsr_7_sensation_14", "msrsr_8_controlling_14",
+                        "msrsr_date_15", "msrsr_1_walking_15", "msrsr_2_arms_15", "msrsr_3_vision_15", "msrsr_4_speech_15", "msrsr_5_swallowing_15", "msrsr_6_cognition_15", "msrsr_7_sensation_15", "msrsr_8_controlling_15",
+                        "msrsr_date_16", "msrsr_1_walking_16", "msrsr_2_arms_16", "msrsr_3_vision_16", "msrsr_4_speech_16", "msrsr_5_swallowing_16", "msrsr_6_cognition_16", "msrsr_7_sensation_16", "msrsr_8_controlling_16",
+                        "msrsr_date_17", "msrsr_1_walking_17", "msrsr_2_arms_17", "msrsr_3_vision_17", "msrsr_4_speech_17", "msrsr_5_swallowing_17", "msrsr_6_cognition_17", "msrsr_7_sensation_17", "msrsr_8_controlling_17",
+                        "msrsr_date_18", "msrsr_1_walking_18", "msrsr_2_arms_18", "msrsr_3_vision_18", "msrsr_4_speech_18", "msrsr_5_swallowing_18", "msrsr_6_cognition_18", "msrsr_7_sensation_18", "msrsr_8_controlling_18",
+                        "msrsr_date_19", "msrsr_1_walking_19", "msrsr_2_arms_19", "msrsr_3_vision_19", "msrsr_4_speech_19", "msrsr_5_swallowing_19", "msrsr_6_cognition_19", "msrsr_7_sensation_19", "msrsr_8_controlling_19",
+                        "msrsr_date_20", "msrsr_1_walking_20", "msrsr_2_arms_20", "msrsr_3_vision_20", "msrsr_4_speech_20", "msrsr_5_swallowing_20", "msrsr_6_cognition_20", "msrsr_7_sensation_20", "msrsr_8_controlling_20",
+                        "msrsr_date_21", "msrsr_1_walking_21", "msrsr_2_arms_21", "msrsr_3_vision_21", "msrsr_4_speech_21", "msrsr_5_swallowing_21", "msrsr_6_cognition_21", "msrsr_7_sensation_21", "msrsr_8_controlling_21",
+                        "msrsr_date_22", "msrsr_1_walking_22", "msrsr_2_arms_22", "msrsr_3_vision_22", "msrsr_4_speech_22", "msrsr_5_swallowing_22", "msrsr_6_cognition_22", "msrsr_7_sensation_22", "msrsr_8_controlling_22",
+                        "msrsr_date_23", "msrsr_1_walking_23", "msrsr_2_arms_23", "msrsr_3_vision_23", "msrsr_4_speech_23", "msrsr_5_swallowing_23", "msrsr_6_cognition_23", "msrsr_7_sensation_23", "msrsr_8_controlling_23",
+                        "msrsr_date_24", "msrsr_1_walking_24", "msrsr_2_arms_24", "msrsr_3_vision_24", "msrsr_4_speech_24", "msrsr_5_swallowing_24", "msrsr_6_cognition_24", "msrsr_7_sensation_24", "msrsr_8_controlling_24",
+                        "msrsr_date_25", "msrsr_1_walking_25", "msrsr_2_arms_25", "msrsr_3_vision_25", "msrsr_4_speech_25", "msrsr_5_swallowing_25", "msrsr_6_cognition_25", "msrsr_7_sensation_25", "msrsr_8_controlling_25")]
+
+msrsr_hx <- msrsr_hx %>% filter(!is.na(msrsr_number))
+
+msrsr_hxDate <- msrsr_hx %>% gather(MSRSRDateSource, Date, 3,12,21,30,39,48,57,66,75,84,93,102,111,120,129,138,147,156,165,174,183,192,201,210,219)
+msrsr_hxDate <- msrsr_hxDate[,c("id_participant", "MSRSRDateSource", "Date")]
+
+msrsr_hxWalking <- msrsr_hx %>% gather(WalkingSource, WalkingScore, 4,13,22,31,40,49,58,67,76,85,94,103,112,121,130,139,148,157,166,175,184,193,202,211,220)
+msrsr_hxWalking <- msrsr_hxWalking[,c("id_participant", "WalkingSource", "WalkingScore")]
+
+msrsr_hxArms <- msrsr_hx %>% gather(ArmsSource, ArmsScore, 5,14,23,32,41,50,59,68,77,86,95,104,113,122,131,140,149,158,167,176,185,194,203,212,221)
+msrsr_hxArms <- msrsr_hxArms[,c("id_participant", "ArmsSource", "ArmsScore")]
+
+msrsr_hxVision <- msrsr_hx %>% gather(VisionSource, VisionScore, 6,15,24,33,42,51,60,69,78,87,96,105,114,123,132,141,150,159,168,177,186,195,204,213,222)
+msrsr_hxVision <- msrsr_hxVision[,c("id_participant", "VisionSource", "VisionScore")]
+
+msrsr_hxSpeech <- msrsr_hx %>% gather(SpeechSource, SpeechScore, 7,16,25,34,43,52,61,70,79,88,97,106,115,124,133,142,151,160,169,178,187,196,205,214,223)
+msrsr_hxSpeech <- msrsr_hxSpeech[,c("id_participant", "SpeechSource", "SpeechScore")]
+
+msrsr_hxSwallowing <- msrsr_hx %>% gather(SwallowingSource, SwallowingScore, 8,17,26,35,44,53,62,71,80,89,98,107,116,125,134,143,152,161,170,179,188,197,206,215,224)
+msrsr_hxSwallowing <- msrsr_hxSwallowing[,c("id_participant", "SwallowingSource", "SwallowingScore")]
+
+msrsr_hxCognition <- msrsr_hx %>% gather(CognitionSource, CognitionScore, 9,18,27,36,45,54,63,72,81,90,99,108,117,126,135,144,153,162,171,180,189,198,207,216,225)
+msrsr_hxCognition <- msrsr_hxCognition[,c("id_participant", "CognitionSource", "CognitionScore")]
+
+msrsr_hxSensation <- msrsr_hx %>% gather(SensationSource, SensationScore, 10,19,28,37,46,55,64,73,82,91,100,109,118,127,136,145,154,163,172,181,190,199,208,217,226)
+msrsr_hxSensation <- msrsr_hxSensation[,c("id_participant", "SensationSource", "SensationScore")]
+
+msrsr_hxControlling <- msrsr_hx %>% gather(ControllingSource, ControllingScore, 11,20,29,38,47,56,65,74,83,92,101,110,119,128,137,146,155,164,173,182,191,200,209,218,227)
+msrsr_hxControlling <- msrsr_hxControlling[,c("id_participant", "ControllingSource", "ControllingScore")]
+
+msrsr_hx <- cbind(msrsr_hxDate, msrsr_hxWalking, msrsr_hxArms, msrsr_hxVision, msrsr_hxSpeech, msrsr_hxSwallowing, msrsr_hxCognition, msrsr_hxSensation, msrsr_hxControlling)
+msrsr_hx <- msrsr_hx[,c("id_participant", "Date", "WalkingScore", "ArmsScore", "VisionScore", "SpeechScore", "SwallowingScore", "CognitionScore", "SensationScore", "ControllingScore")]
+msrsr_hx <- msrsr_hx %>% filter(str_detect(Date, "20"))
+
+names(msrsr_hx)[2] <- "date"
+names(msrsr_hx)[3] <- "walking"
+names(msrsr_hx)[4] <- "arms"
+names(msrsr_hx)[5] <- "vision"
+names(msrsr_hx)[6] <- "speech"
+names(msrsr_hx)[7] <- "swallowing"
+names(msrsr_hx)[8] <- "cognition"
+names(msrsr_hx)[9] <- "sensation"
+names(msrsr_hx)[10] <- "controlling"
+
+```
+
+##Stool
+```{r}
+msrsr_stool <- database[,c("id_participant", "stool0a_collection_date", "stool0b_collection_date", "collection1a_date", "collection1b_date", "stool_msrsr_date", "msrsr_1_walking_stool", "msrsr_2_arms_stool", "msrsr_3_vision_stool", "msrsr_4_speech_stool", "msrsr_5_swallowing_stool", "msrsr_6_cognition_stool", "msrsr_7_sensation_stool", "msrsr_8_controlling_stool")]
+
+msrsr_stool$date <- apply( msrsr_stool[ , c(2:6) ] , 1 , paste_noNA , sep=sep)
+
+msrsr_stool <- msrsr_stool %>% filter(((!is.na(msrsr_1_walking_stool)) | (!is.na(msrsr_2_arms_stool)) | (!is.na(msrsr_3_vision_stool)) | (!is.na(msrsr_4_speech_stool)) | (!is.na(msrsr_5_swallowing_stool)) | (!is.na(msrsr_6_cognition_stool)) | (!is.na(msrsr_7_sensation_stool)) | (!is.na(msrsr_8_controlling_stool))))
+msrsr_stool$date <- sub('.*,\\s*', '', msrsr_stool$date)
+
+msrsr_stool <- msrsr_stool[,c("id_participant", "date", "msrsr_1_walking_stool", "msrsr_2_arms_stool", "msrsr_3_vision_stool", "msrsr_4_speech_stool", "msrsr_5_swallowing_stool", "msrsr_6_cognition_stool", "msrsr_7_sensation_stool", "msrsr_8_controlling_stool")]
+
+names(msrsr_stool)[3] <- 'walking'
+names(msrsr_stool)[4] <- 'arms'
+names(msrsr_stool)[5] <- 'vision'
+names(msrsr_stool)[6] <- 'speech'
+names(msrsr_stool)[7] <- 'swallowing'
+names(msrsr_stool)[8] <- 'cognition'
+names(msrsr_stool)[9] <- 'sensation'
+names(msrsr_stool)[10] <- 'controlling'
+
+```
+
+##SRO- Legacy
+```{r}
+msrsrLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "msrsr_1_walking", "msrsr_2_arms", "msrsr_3_vision", "msrsr_4_speech", "msrsr_5_swallowing", "msrsr_6_cognition", "msrsr_7_sensation", "msrsr_8_controlling")]
+msrsrLeg <- msrsrLeg %>% filter(((!is.na(msrsr_1_walking)) | (!is.na(msrsr_2_arms)) | (!is.na(msrsr_3_vision)) | (!is.na(msrsr_4_speech)) | (!is.na(msrsr_5_swallowing)) | (!is.na(msrsr_6_cognition)) | (!is.na(msrsr_7_sensation)) | (!is.na(msrsr_8_controlling))))
+
+names(msrsrLeg)[2] <- 'date'
+names(msrsrLeg)[3] <- 'walking'
+names(msrsrLeg)[4] <- 'arms'
+names(msrsrLeg)[5] <- 'vision'
+names(msrsrLeg)[6] <- 'speech'
+names(msrsrLeg)[7] <- 'swallowing'
+names(msrsrLeg)[8] <- 'cognition'
+names(msrsrLeg)[9] <- 'sensation'
+names(msrsrLeg)[10] <- 'controlling'
+
+
+```
+
+##SRO & Update- Long 1&2
+```{r}
+msrsrSROUpd <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "msrsr_1_walking", "msrsr_2_arms", "msrsr_3_vision", "msrsr_4_speech", "msrsr_5_swallowing", "msrsr_6_cognition", "msrsr_7_sensation", "msrsr_8_controlling", 
+                               "update_questionnaire_timestamp", "msrsr_1_walking_199ae4", "msrsr_2_arms_925243", "msrsr_3_vision_4f4211", "msrsr_4_speech_a70c63", "msrsr_5_swallowing_71e72a", "msrsr_6_cognition_cc4edb", "msrsr_7_sensation_43df4a", "msrsr_8_controlling_3802d5")]
+names(msrsrSROUpd)[1] <- 'id_participant'
+
+msrsrSROUpdDate <- msrsrSROUpd %>% gather(MSRSRDateSource, Date, 2,11)
+msrsrSROUpdDate <- msrsrSROUpdDate[,c("id_participant", "MSRSRDateSource", "Date")]
+
+msrsrSROUpdWalking <- msrsrSROUpd %>% gather(WalkingSource, WalkingScore, 3,12)
+msrsrSROUpdWalking <- msrsrSROUpdWalking[,c("id_participant", "WalkingSource", "WalkingScore")]
+
+msrsrSROUpdArms <- msrsrSROUpd %>% gather(ArmsSource, ArmsScore, 4,13)
+msrsrSROUpdArms <- msrsrSROUpdArms[,c("id_participant", "ArmsSource", "ArmsScore")]
+
+msrsrSROUpdVision <- msrsrSROUpd %>% gather(VisionSource, VisionScore, 5,14)
+msrsrSROUpdVision <- msrsrSROUpdVision[,c("id_participant", "VisionSource", "VisionScore")]
+
+msrsrSROUpdSpeech <- msrsrSROUpd %>% gather(SpeechSource, SpeechScore, 6,15)
+msrsrSROUpdSpeech <- msrsrSROUpdSpeech[,c("id_participant", "SpeechSource", "SpeechScore")]
+
+msrsrSROUpdSwallowing <- msrsrSROUpd %>% gather(SwallowingSource, SwallowingScore, 7,16)
+msrsrSROUpdSwallowing <- msrsrSROUpdSwallowing[,c("id_participant", "SwallowingSource", "SwallowingScore")]
+
+msrsrSROUpdCognition <- msrsrSROUpd %>% gather(CognitionSource, CognitionScore, 8,17)
+msrsrSROUpdCognition <- msrsrSROUpdCognition[,c("id_participant", "CognitionSource", "CognitionScore")]
+
+msrsrSROUpdSensation <- msrsrSROUpd %>% gather(SensationSource, SensationScore, 9,18)
+msrsrSROUpdSensation <- msrsrSROUpdSensation[,c("id_participant", "SensationSource", "SensationScore")]
+
+msrsrSROUpdControlling <- msrsrSROUpd %>% gather(ControllingSource, ControllingScore, 10,19)
+msrsrSROUpdControlling <- msrsrSROUpdControlling[,c("id_participant", "ControllingSource", "ControllingScore")]
+
+msrsrSROUpd <- cbind(msrsrSROUpdDate, msrsrSROUpdWalking, msrsrSROUpdArms, msrsrSROUpdVision, msrsrSROUpdSpeech, msrsrSROUpdSwallowing, msrsrSROUpdCognition, msrsrSROUpdSensation, msrsrSROUpdControlling)
+msrsrSROUpd <- msrsrSROUpd[,c("id_participant", "Date", "WalkingScore", "ArmsScore", "VisionScore", "SpeechScore", "SwallowingScore", "CognitionScore", "SensationScore", "ControllingScore")]
+
+names(msrsrSROUpd)[2] <- 'date'
+names(msrsrSROUpd)[3] <- 'walking'
+names(msrsrSROUpd)[4] <- 'arms'
+names(msrsrSROUpd)[5] <- 'vision'
+names(msrsrSROUpd)[6] <- 'speech'
+names(msrsrSROUpd)[7] <- 'swallowing'
+names(msrsrSROUpd)[8] <- 'cognition'
+names(msrsrSROUpd)[9] <- 'sensation'
+names(msrsrSROUpd)[10] <- 'controlling'
+
+msrsrSROUpd <- msrsrSROUpd %>% filter(((!is.na(walking)) | (!is.na(arms)) | (!is.na(vision)) | (!is.na(speech)) | (!is.na(swallowing)) | (!is.na(cognition)) | (!is.na(sensation)) | (!is.na(controlling))))
+
+
+```
+
+##Outcomes
+```{r}
+msrsrOut <- longitudinal[,c("id_participant_l", "outcome_measures_timestamp", "msrsr_1_walking_outcomes", "msrsr_2_arms_outcomes", "msrsr_3_vision_outcomes", "msrsr_4_speech_outcomes", "msrsr_5_swallowing_outcomes", "msrsr_6_cognition_outcomes", "msrsr_7_sensation_outcomes", "msrsr_8_controlling_outcomes")]
+
+names(msrsrOut)[1] <- 'id_participant'
+names(msrsrOut)[2] <- 'date'
+names(msrsrOut)[3] <- 'walking'
+names(msrsrOut)[4] <- 'arms'
+names(msrsrOut)[5] <- 'vision'
+names(msrsrOut)[6] <- 'speech'
+names(msrsrOut)[7] <- 'swallowing'
+names(msrsrOut)[8] <- 'cognition'
+names(msrsrOut)[9] <- 'sensation'
+names(msrsrOut)[10] <- 'controlling'
+
+msrsrOut <- msrsrOut %>% filter(((!is.na(walking)) | (!is.na(arms)) | (!is.na(vision)) | (!is.na(speech)) | (!is.na(swallowing)) | (!is.na(cognition)) | (!is.na(sensation)) | (!is.na(controlling))))
+
+
+```
+
+##Social network legacy
+```{r}
+msrsrSNQ <- snq[,c("redcap_survey_identifier", "social_network_questionnaire_timestamp", "social_msrs_walking", "social_msrs_extremeties", "social_msrs_vision", "social_msrs_speech", "social_msrs_swallowing", "social_msrs_cognition", "social_msrs_sensory", "social_msrs_continence")]
+
+names(msrsrSNQ)[1] <- 'id_participant'
+names(msrsrSNQ)[2] <- 'date'
+names(msrsrSNQ)[3] <- 'walking'
+names(msrsrSNQ)[4] <- 'arms'
+names(msrsrSNQ)[5] <- 'vision'
+names(msrsrSNQ)[6] <- 'speech'
+names(msrsrSNQ)[7] <- 'swallowing'
+names(msrsrSNQ)[8] <- 'cognition'
+names(msrsrSNQ)[9] <- 'sensation'
+names(msrsrSNQ)[10] <- 'controlling'
+
+msrsrSNQ <- msrsrSNQ %>% filter(((!is.na(walking)) | (!is.na(arms)) | (!is.na(vision)) | (!is.na(speech)) | (!is.na(swallowing)) | (!is.na(cognition)) | (!is.na(sensation)) | (!is.na(controlling))))
+
+
+```
+
+##Sensor- monthly
+```{r}
+msrsrSensor <- sensor[,c("record_id", "monthlyq_timestamp", "msrsr_1", "msrsr_2", "msrsr_3", "msrsr_4", "msrsr_5", "msrsr_6", "msrsr_7", "msrsr_8")]
+msrsrSensor <- msrsrSensor %>% filter(str_detect(record_id, "PRT"))
+msrsrSensor <- msrsrSensor %>% filter(!str_detect(record_id, "_0"))
+
+names(msrsrSensor)[1] <- 'id_participant'
+names(msrsrSensor)[2] <- 'date'
+names(msrsrSensor)[3] <- 'walking'
+names(msrsrSensor)[4] <- 'arms'
+names(msrsrSensor)[5] <- 'vision'
+names(msrsrSensor)[6] <- 'speech'
+names(msrsrSensor)[7] <- 'swallowing'
+names(msrsrSensor)[8] <- 'cognition'
+names(msrsrSensor)[9] <- 'sensation'
+names(msrsrSensor)[10] <- 'controlling'
+
+msrsrSensor <- msrsrSensor %>% filter(((!is.na(walking)) | (!is.na(arms)) | (!is.na(vision)) | (!is.na(speech)) | (!is.na(swallowing)) | (!is.na(cognition)) | (!is.na(sensation)) | (!is.na(controlling))))
+
+```
+
+##COVID-baseline & quarterly
+```{r}
+msrsrCovid <- covid[,c("id_participant_l", "covid19_baseline_timestamp", "msrsr_1_baseline", "msrsr_2_baseline", "msrsr_3_baseline", "msrsr_4_baseline", "msrsr_5_baseline", "msrsr_6_baseline", "msrsr_7_baseline", "msrsr_8_baseline",
+                             "covid19_quarterly_timestamp", "msrsr_1_3m", "msrsr_2_3m", "msrsr_3_3m", "msrsr_4_3m", "msrsr_5_3m", "msrsr_6_3m", "msrsr_7_3m", "msrsr_8_3m")]
+names(msrsrCovid)[1] <- 'id_participant'
+
+msrsrCovidDate <- msrsrCovid %>% gather(MSRSRDateSource, Date, 2,11)
+msrsrCovidDate <- msrsrCovidDate[,c("id_participant", "MSRSRDateSource", "Date")]
+
+msrsrCovidWalking <- msrsrCovid %>% gather(WalkingSource, WalkingScore, 3,12)
+msrsrCovidWalking <- msrsrCovidWalking[,c("id_participant", "WalkingSource", "WalkingScore")]
+
+msrsrCovidArms <- msrsrCovid %>% gather(ArmsSource, ArmsScore, 4,13)
+msrsrCovidArms <- msrsrCovidArms[,c("id_participant", "ArmsSource", "ArmsScore")]
+
+msrsrCovidVision <- msrsrCovid %>% gather(VisionSource, VisionScore, 5,14)
+msrsrCovidVision <- msrsrCovidVision[,c("id_participant", "VisionSource", "VisionScore")]
+
+msrsrCovidSpeech <- msrsrCovid %>% gather(SpeechSource, SpeechScore, 6,15)
+msrsrCovidSpeech <- msrsrCovidSpeech[,c("id_participant", "SpeechSource", "SpeechScore")]
+
+msrsrCovidSwallowing <- msrsrCovid %>% gather(SwallowingSource, SwallowingScore, 7,16)
+msrsrCovidSwallowing <- msrsrCovidSwallowing[,c("id_participant", "SwallowingSource", "SwallowingScore")]
+
+msrsrCovidCognition <- msrsrCovid %>% gather(CognitionSource, CognitionScore, 8,17)
+msrsrCovidCognition <- msrsrCovidCognition[,c("id_participant", "CognitionSource", "CognitionScore")]
+
+msrsrCovidSensation <- msrsrCovid %>% gather(SensationSource, SensationScore, 9,18)
+msrsrCovidSensation <- msrsrCovidSensation[,c("id_participant", "SensationSource", "SensationScore")]
+
+msrsrCovidControlling <- msrsrCovid %>% gather(ControllingSource, ControllingScore, 10,19)
+msrsrCovidControlling <- msrsrCovidControlling[,c("id_participant", "ControllingSource", "ControllingScore")]
+
+msrsrCovid <- cbind(msrsrCovidDate, msrsrCovidWalking, msrsrCovidArms, msrsrCovidVision, msrsrCovidSpeech, msrsrCovidSwallowing, msrsrCovidCognition, msrsrCovidSensation, msrsrCovidControlling)
+msrsrCovid <- msrsrCovid[,c("id_participant", "Date", "WalkingScore", "ArmsScore", "VisionScore", "SpeechScore", "SwallowingScore", "CognitionScore", "SensationScore", "ControllingScore")]
+
+names(msrsrCovid)[2] <- 'date'
+names(msrsrCovid)[3] <- 'walking'
+names(msrsrCovid)[4] <- 'arms'
+names(msrsrCovid)[5] <- 'vision'
+names(msrsrCovid)[6] <- 'speech'
+names(msrsrCovid)[7] <- 'swallowing'
+names(msrsrCovid)[8] <- 'cognition'
+names(msrsrCovid)[9] <- 'sensation'
+names(msrsrCovid)[10] <- 'controlling'
+
+msrsrCovid <- msrsrCovid %>% filter(((!is.na(walking)) | (!is.na(arms)) | (!is.na(vision)) | (!is.na(speech)) | (!is.na(swallowing)) | (!is.na(cognition)) | (!is.na(sensation)) | (!is.na(controlling))))
+
+```
+
+##COVID Vaccine
+```{r}
+msrsrVaccine <- vaccine[,c("id_participant_l", "covid19_vaccine_questions_timestamp", "msrsr_1_walking_outcomes", "msrsr_2_arms_outcomes", "msrsr_3_vision_outcomes", "msrsr_4_speech_outcomes", "msrsr_5_swallowing_outcomes", "msrsr_6_cognition_outcomes", "msrsr_7_sensation_outcomes", "msrsr_8_controlling_outcomes")]
+
+names(msrsrVaccine)[1] <- 'id_participant'
+names(msrsrVaccine)[2] <- 'date'
+names(msrsrVaccine)[3] <- 'walking'
+names(msrsrVaccine)[4] <- 'arms'
+names(msrsrVaccine)[5] <- 'vision'
+names(msrsrVaccine)[6] <- 'speech'
+names(msrsrVaccine)[7] <- 'swallowing'
+names(msrsrVaccine)[8] <- 'cognition'
+names(msrsrVaccine)[9] <- 'sensation'
+names(msrsrVaccine)[10] <- 'controlling'
+
+msrsrVaccine <- msrsrVaccine %>% filter(((!is.na(walking)) | (!is.na(arms)) | (!is.na(vision)) | (!is.na(speech)) | (!is.na(swallowing)) | (!is.na(cognition)) | (!is.na(sensation)) | (!is.na(controlling))))
+
+
+```
+
+##Prebiotic
+```{r}
+msrsrPrePro <- prepro[,c("record_id", "promote_id", "v1_survey_timestamp", "v2_survey_timestamp", "v3_survey_timestamp", "v4_survey_timestamp", "v5_survey_timestamp", "msrsr_and_pdds_questionnaire_timestamp", "walking", "using_your_arms_and_hands", "vision", "speech", "swallowing", "cognition", "numbness", "bladder")]
+  #don't need msrsr_pdds_timestamp because that's been filled in using the manual fields
+msrsrPrePro <- msrsrPrePro %>%
+  group_by(record_id) %>%
+  mutate(promote_id = first(promote_id))
+
+msrsrPrePro$date <- apply( msrsrPrePro[ , c(3:7) ] , 1 , paste_noNA , sep=sep)
+
+names(msrsrPrePro)[2] <- 'id_participant'
+names(msrsrPrePro)[10] <- 'arms'
+names(msrsrPrePro)[15] <- 'sensation'
+names(msrsrPrePro)[16] <- 'controlling'
+
+msrsrPrePro <- msrsrPrePro[,c("id_participant", "date", "walking", "arms", "vision", "speech", "swallowing", "cognition", "sensation", "controlling")]
+msrsrPrePro <- msrsrPrePro %>% filter(((!is.na(walking)) | (!is.na(arms)) | (!is.na(vision)) | (!is.na(speech)) | (!is.na(swallowing)) | (!is.na(cognition)) | (!is.na(sensation)) | (!is.na(controlling))))
+
+```
+
+##PASC
+```{r}
+pasc <- pasc %>% filter(str_detect(id_participant, "PRT"))
+
+msrsrPASC <- pasc[,c("id_participant", "postacute_sequelae_of_sarscov2_timestamp", "walking", "arms", "vision_msrsr", "speech", "swallowing", "cognition", "sensation", "controlling")]
+names(msrsrPASC)[2] <- 'date'
+names(msrsrPASC)[5] <- 'vision'
+
+
+```
+
+
+##Combine all MSRSR, total
+```{r}
+msrsr_all <- rbind(msrsr_hx, msrsr_stool, msrsrLeg, msrsrSROUpd, msrsrOut, msrsrSNQ, msrsrSensor, msrsrCovid, msrsrVaccine, msrsrPrePro, msrsrPASC)
+msrsr_all <- msrsr_all %>% filter(str_detect(id_participant, "PRT"))
+msrsr_all <- msrsr_all %>% filter(str_detect(date, "20"))
+
+msrsr_all$total <- msrsr_all$walking + msrsr_all$arms + msrsr_all$vision + msrsr_all$speech + msrsr_all$swallowing + msrsr_all$cognition + msrsr_all$sensation + msrsr_all$controlling
+
+msrsr_all <- unique(msrsr_all)
+msrsr_all$date <- as.Date(msrsr_all$date)
+  #COMMENT TO RUN THROUGH TODAY'S DATE
+msrsr_all <- msrsr_all %>% filter(str_detect(id_participant, "PRT"))
+  #filter out bad dates- greater than today
+msrsr_all <- msrsr_all %>% filter(!date>Sys.Date())
+
+msrsr_all_incomplete <- msrsr_all %>% filter(is.na(total))
+  ##############use this file if we want histograms in the future for individual components
+
+msrsr_all <- msrsr_all %>% filter(!is.na(total))  #gives only complete scores
+test <- data.frame(table(msrsr_all$id_participant)) #1835 participants
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #7.80 scores per person
+sd(test$Freq)
+  #14319 complete scores
+
+mean(msrsr_all$total) #mean 7.95
+sd(msrsr_all$total)
+
+write.csv(msrsr_all, "msrsr_all.csv", row.names=FALSE)
+```
+
+#MSRSR Visualization
+##Histogram of all msrsr scores
+```{r}
+#Export list of all msrsr scores
+write.csv(msrsr_all, "msrsr_all.csv")
+
+ggplot(msrsr_all, aes(total)) +
+    geom_histogram(colour="#236fa0", fill="#287eb7", bins = 33) +
+    theme_minimal() +
+    geom_vline(aes(xintercept=mean(total)), color="#E74C3C", linetype="dashed", size=.5) +
+    scale_x_continuous(breaks = seq(0, 32, by=4)) +
+    scale_y_continuous(breaks = seq(0, 1000, by=100)) +
+    labs(title = "All MSRSR Total Scores") + theme(plot.title = element_text(hjust = 0.5)) + xlab("MSRSR Total Score") + ylab("# of Scores")
+
+```
+
+##Histogram of most recent msrsr scores
+```{r}
+#Uses list of complete scores
+most_recent <- msrsr_all
+most_recent = aggregate(msrsr_all$date,by=list(most_recent$id_participant),max)
+names(most_recent)[1] <- 'id_participant'
+names(most_recent)[2] <- 'date'
+  #merge list of most recent pdds dates with the scores
+most_recent2 = merge(most_recent, msrsr_all, by.x=c("id_participant", "date"), by.y=c("id_participant", "date"))
+most_recent2 <- unique(most_recent2)
+
+  #find duplicate PRTs- multiple scores on the same date
+test <- data.frame(table(most_recent2$id_participant))
+test <- test %>% filter(Freq>0)
+  #remove lower score by identifying the values we want to delete.  Filtering FOR NOT wrong = filter to keep correct
+  #only 1 per participant, total should be 1702
+most_recent3 <- most_recent2 %>% filter( (!((total==12) & (str_detect(id_participant, "PRT170218")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==0) & (str_detect(id_participant, "PRT170247")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==4) & (str_detect(id_participant, "PRT180558")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==0) & (str_detect(id_participant, "PRT180699")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==13) & (str_detect(id_participant, "PRT180710")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==2) & (str_detect(id_participant, "PRT180814")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==17) & (str_detect(id_participant, "PRT190880")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==12) & (str_detect(id_participant, "PRT191002")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==6) & (str_detect(id_participant, "PRT191097")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==18) & (str_detect(id_participant, "PRT191274")))))
+most_recent3 <- most_recent3 %>% filter( (!((controlling==3) & (str_detect(id_participant, "PRT191315")))))
+most_recent3 <- most_recent3 %>% filter( (!((vision==1) & (str_detect(id_participant, "PRT170190")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==16) & (str_detect(id_participant, "PRT180749")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==0) & (str_detect(id_participant, "PRT201810")))))
+most_recent3 <- most_recent3 %>% filter( (!((total==17) & (str_detect(id_participant, "PRT191121")))))
+test <- data.frame(table(most_recent3$id_participant))
+test <- test %>% filter(Freq>0)
+
+mean(most_recent3$total) #mean 8.07
+sd(most_recent3$total)
+
+ggplot(most_recent3, aes(total)) +
+    geom_histogram(colour="#236fa0", fill="#287eb7", bins = 28) +
+    theme_minimal() +
+    geom_vline(aes(xintercept=mean(total)), color="#E74C3C", linetype="dashed", size=.5) +
+    scale_x_continuous(breaks = seq(0, 28, by=1)) +
+    scale_y_continuous(breaks = seq(0, 200, by=50)) +
+    labs(title = "Most Recent MSRSR Total Scores") + theme(plot.title = element_text(hjust = 0.5)) + xlab("MSRSR Total Score") + ylab("# of Scores")
+
+#Export list of recent msrsr scores
+#write.csv(most_recent3, "/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Data Desc Queries/MSRSR_Query/msrsr_recent.csv")
+
+
+```
+
+##Histogram of earliest msrsr scores
+```{r}
+#Uses list of complete scores
+earliest <- msrsr_all
+earliest = aggregate(msrsr_all$date,by=list(earliest$id_participant),min)
+names(earliest)[1] <- 'id_participant'
+names(earliest)[2] <- 'date'
+  #merge list of earliest pdds dates with the scores
+earliest2 = merge(earliest, msrsr_all, by.x=c("id_participant", "date"), by.y=c("id_participant", "date"))
+earliest2 <- unique(earliest2)
+
+  #find duplicate PRTs- multiple scores on the same date
+test <- data.frame(table(earliest2$id_participant))
+test <- test %>% filter(Freq>0)
+  #remove lower score, only 1 per participant, total should be 1702
+earliest3 <- earliest2 %>% filter( (!((cognition==2) & (str_detect(id_participant, "PRT170088")))))
+earliest3 <- earliest3 %>% filter( (!((total==2) & (str_detect(id_participant, "PRT180814")))))
+earliest3 <- earliest3 %>% filter( (!((total==9) & (str_detect(id_participant, "PRT190962")))))
+earliest3 <- earliest3 %>% filter( (!((total==6) & (str_detect(id_participant, "PRT191097")))))
+earliest3 <- earliest3 %>% filter( (!((total==11) & (str_detect(id_participant, "PRT201839")))))
+test <- data.frame(table(earliest3$id_participant))
+test <- test %>% filter(Freq>0)
+
+mean(earliest3$total) #mean 8.07
+sd(earliest3$total)
+
+ggplot(earliest3, aes(total)) +
+    geom_histogram(colour="#236fa0", fill="#287eb7", bins = 33) +
+    theme_minimal() +
+    geom_vline(aes(xintercept=mean(total)), color="#E74C3C", linetype="dashed", size=.5) +
+    scale_x_continuous(breaks = seq(0, 32, by=2)) +
+    scale_y_continuous(breaks = seq(0, 200, by=25)) +
+    labs(title = "Baseline MSRSR Total Score") + theme(plot.title = element_text(hjust = 0.5)) + xlab("MSRSR Total Score") + ylab("# of Scores")
+
+#Export list of earliest pdds scores
+#write.csv(earliest3, "/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Data Desc Queries/MSRSR_Query/msrsr_earliest.csv")
+
+```
+
+##Minimum two msrsr scores
+```{r}
+#Finds list of participants with at least 2 MSRSR scores on separate days
+#Then displays histogram of the days between the two scores
+
+multiple <- data.frame(table(msrsr_all$id_participant))
+multiple <- multiple %>% filter(Freq>1)
+names(multiple)[1] <- 'id_participant'
+  #merge list of >1 score with the date and actual scores
+multiple2 <- merge(multiple, msrsr_all, by = 'id_participant', all.y = TRUE)
+multiple2 <- multiple2 %>% filter(!is.na(Freq))
+multiple2 <- multiple2[order(multiple2$id_participant, multiple2$date), ]
+
+  #calculate the difference in dates by days, absolute value
+multiple3 <- multiple2 %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(date, default = first(date), order_by = Freq) - date)
+multiple3$diff <- abs(multiple3$diff)
+  #calculate the mean of the difference in dates- any mean that ==0 has ONLY scores from the same day
+test2 <- multiple3 %>%
+  group_by(id_participant) %>%
+  summarise_at(vars(diff), list(mean_days_diff = mean))
+  #remove people w/ mean_days_diff==0
+test2 <- test2 %>% filter(mean_days_diff!=0)
+
+sum(table(unique(test2$id_participant)))
+  #1533 participants w/ 2+ scores on 2+ days
+mean(test2$mean_days_diff) #129.6
+
+test2$mean_days_diff <- as.numeric(as.character(test2$mean_days_diff))
+ggplot(test2, aes(mean_days_diff)) +
+    geom_histogram(colour="#008080", fill="#329999") +
+    theme_minimal() +
+    geom_vline(aes(xintercept=mean(mean_days_diff)), color="#800000", linetype="dashed", size=.5) +
+    scale_y_continuous(breaks = seq(0, 400, by=50)) +
+    scale_x_continuous(breaks = seq(0, 850, by=60)) +
+    labs(title = "Mean Duration Between Scores per Participant") + theme(plot.title = element_text(hjust = 0.5)) + xlab("Duration (days)") + ylab("# of Participants")
+
+
+```
+
+#Find medians
+```{r}
+msrsr_final <- msrsr_all
+msrsr_final$year <- year(msrsr_final$date)
+msrsr_final_summary <- msrsr_final %>%
+  mutate_at(vars(-id_participant), as.numeric) %>%
+  group_by(id_participant, year) %>%
+  dplyr::summarise(msrsr_walking_median = floor(median(walking)),
+            msrsr_arms_median = floor(median(arms)),
+            msrsr_vision_median = floor(median(vision)),
+            msrsr_speech_median = floor(median(speech)),
+            msrsr_swallowing_median = floor(median(swallowing)),
+            msrsr_cognition_median = floor(median(cognition)),
+            msrsr_sensation_median = floor(median(sensation)),
+            msrsr_controlling_median = floor(median(controlling)),
+            msrsr_total_median = msrsr_walking_median + msrsr_arms_median + msrsr_vision_median + msrsr_speech_median + msrsr_swallowing_median + msrsr_cognition_median + msrsr_sensation_median + msrsr_controlling_median,
+            msrsr_num_observations = n()
+  ) %>% ungroup()
+msrsr_final_summary <- msrsr_final_summary[,c(1,2,11)]
+
+msrsr_new <- merge(msrsr_final, msrsr_final_summary, by = c("id_participant", "year"))
+msrsr_new$difference <- msrsr_new$total - msrsr_new$msrsr_total_median
+msrsr_new <- msrsr_new %>% filter(!(msrsr_new$difference > 6 | msrsr_new$difference < -6))
+msrsr_new <- msrsr_new[,c(1:12)]
+
+msrsr_new_summary <- msrsr_new %>% 
+  mutate_at(vars(-id_participant), as.numeric) %>%
+  group_by(id_participant, year) %>%
+  dplyr::summarise(msrsr_walking_median = floor(median(walking)),
+            msrsr_arms_median = floor(median(arms)),
+            msrsr_vision_median = floor(median(vision)),
+            msrsr_speech_median = floor(median(speech)),
+            msrsr_swallowing_median = floor(median(swallowing)),
+            msrsr_cognition_median = floor(median(cognition)),
+            msrsr_sensation_median = floor(median(sensation)),
+            msrsr_controlling_median = floor(median(controlling)),
+            msrsr_total_median = msrsr_walking_median + msrsr_arms_median + msrsr_vision_median + msrsr_speech_median + msrsr_swallowing_median + msrsr_cognition_median + msrsr_sensation_median + msrsr_controlling_median,
+            msrsr_num_observations = n()
+  ) %>% ungroup()
+
+msrsr_new_summary <- msrsr_new_summary %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(msrsr_total_median, default = first(msrsr_total_median), order_by = year) - msrsr_total_median)
+msrsr_new_summary <- as.data.frame(msrsr_new_summary)
+
+#export list of all median scores per year
+msrsr_all_median <- msrsr_new_summary
+write.csv(msrsr_all_median, "msrsr_all_median.csv")
+
+
+```
+
+
+
+
