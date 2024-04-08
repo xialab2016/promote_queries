@@ -1,0 +1,126 @@
+---
+title: "IVIS Scoring"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+
+# This code finds all ivis scores for all PROMOTE participants
+  #IVIS: Longitudinal SRO & Update, Legacy SRO
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+#setwd("your_working_directory")
+
+longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+
+```
+
+#Legacy
+```{r}
+#SRO
+ivisLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "ivis_1_personal", "ivis_2_print", "ivis_3_dials", "ivis_4_distance", "ivis_5_signs")]
+names(ivisLeg)[2] <- 'ivis_date'
+
+
+```
+
+#Longitudinal
+```{r}
+#SRO & Update
+ivisLong <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "ivis_1_personal", "ivis_2_print", "ivis_3_dials", "ivis_4_distance", "ivis_5_signs",
+                            "update_questionnaire_timestamp", "ivis_1_personal_594de6", "ivis_2_print_074a4b", "ivis_3_dials_15b953", "ivis_4_distance_b903ee", "ivis_5_signs_b7213d")]
+
+ivisLongDate <- ivisLong %>% gather(dateNumber, ivis_date, 2,8)
+ivisLongScore1 <- ivisLong %>% gather(scoreNumber1, ivis_1_personal, 3,9)
+ivisLongScore2 <- ivisLong %>% gather(scoreNumber2, ivis_2_print, 4,10)
+ivisLongScore3 <- ivisLong %>% gather(scoreNumber3, ivis_3_dials, 5,11)
+ivisLongScore4 <- ivisLong %>% gather(scoreNumber4, ivis_4_distance, 6,12)
+ivisLongScore5 <- ivisLong %>% gather(scoreNumber5, ivis_4_signs, 7,13)
+
+ivisLong <- cbind(ivisLongDate, ivisLongScore1, ivisLongScore2, ivisLongScore3, ivisLongScore4, ivisLongScore5)
+ivisLong <- ivisLong[,c("id_participant_l", "ivis_date", "ivis_1_personal", "ivis_2_print", "ivis_3_dials", "ivis_4_distance", "ivis_5_signs")]
+names(ivisLong)[1] <- 'id_participant'
+
+```
+
+#Combine and score
+```{r}
+#Combine
+ivis_All <- rbind(ivisLeg, ivisLong)
+
+#add all items
+ivis_All$ivis_total <- rowSums(ivis_All[,c(3:7)])
+ivis_All <- ivis_All %>% filter(!is.na(ivis_total))
+
+#export
+write.csv(ivis_All, "ivis.csv")
+
+```
+
+#Basic stats
+```{r}
+#1706 scores
+mean(ivis_All$ivis_total)  #mean of all scores is 1.3
+sd(ivis_All$ivis_total)  #sd is 2.2
+range(ivis_All$ivis_total)  #range is 0-14
+median(ivis_All$ivis_total)  #median is 0
+
+sum(table(unique(ivis_All$id_participant)))  #1057 participants w/ at least 1 score
+
+test <- data.frame(table(ivis_All$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 1.6 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #419 participants with 1 score
+  #627 participants with 2 scores
+  #11 participants with 3 scores
+
+#finds info for first score per participant
+ivis_All$ivis_date <- as.Date(ivis_All$ivis_date)
+first <- ivis_All %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(ivis_date, default = first(ivis_date), order_by = ivis_date) - ivis_date)
+first <- first %>% filter(diff==0)
+  #first scores for 972 participants
+mean(first$ivis_total)  #mean is 1.2
+sd(first$ivis_total)  #sd is 2.1
+range(first$ivis_total)  #range is 0-14
+median(first$ivis_total)  #median is 0
+
+```
+
+#Visualization
+```{r}
+hist(ivis_All$ivis_total)
+
+```
+
+
