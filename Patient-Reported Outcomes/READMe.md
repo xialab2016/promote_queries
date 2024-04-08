@@ -49,3 +49,13 @@
    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
 
    Output: CSV file with FAMS total scores and subscores for all PROMOTE participants, histograms of all total scores/subscores, plot with number of FAMS survey responses over time, histogram of earliest FAMS scores
+
+7. Impact of Visual-Impairment (IVIS)
+
+   Version 1: 2024-04-09
+
+   Finds all IVIS scores for the PROMOTE study
+
+   Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
+
+   Output: CSV file with IVIS scores and subscores for all PROMOTE participants, histogram of IVIS total scores
