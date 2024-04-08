@@ -1,0 +1,181 @@
+---
+title: "Leisure Scoring"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+
+# This code finds all leisure scores for all PROMOTE participants
+  #Leisure early 20s: Longitudinal baseline
+  #Leisure current: Longitudinal baseline, longitudinal follow-up
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+#setwd("your_working_directory")
+
+longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+longitudinal <- longitudinal %>%
+  group_by(id_participant_l) %>%
+  mutate(dob = first(dob))
+
+#!!!!!!!!!!!!!!!!CHECK THESE COLUMN NUMBERS!!!!!!!!!!!!!!!!!!
+leisureBase <- longitudinal[,c(1,7,2609:2733)]
+leisureFollow <- longitudinal[,c(1,7,2734:2826)]
+
+```
+
+
+#Young- 20s
+```{r}
+#Leisure baseline
+#There are 2 options here, one for MS participants and one for non-MS participants.  They need to be either gathered or row-bound
+  #I chose row-binding
+
+youngMSLeisure <- leisureBase[,c("id_participant_l", "dob", "leisure_activity_scale_baseline_timestamp", "read_books1", "read_mag1", "produce_art1", "engage_writing_projects1", "perform_art1", "play_games1", "engage_hobbies1", "meet_friends1", "run_elliptical1", "swim_exercise1", "high_intense_sports1", "low_intense_activities1", "engage_toning1", "bike1", "high_exercise_classes1")]
+colnames(youngMSLeisure) <- c("id_participant", "dob", "leisure_date", "read_books", "read_mag", "produce_art", "engage_writing_projects", "perform_art", "play_games", "engage_hobbies", "meet_friends", "run_elliptical", "swim_exercise", "high_intense_sports", "low_intense_activities", "engage_toning", "bike", "high_exercise_classes")
+
+youngControlLeisure <- leisureBase[,c("id_participant_l", "dob", "leisure_activity_scale_baseline_timestamp", "read_books2", "read_mag2", "produce_art2", "engage_writing_projects2", "perform_art2", "play_games2", "engage_hobbies2", "meet_friends2", "run_elliptical2", "swim_exercise2", "high_intense_sports2", "low_intense_activities2", "engage_toning2", "bike2", "high_exercise_classes2")]
+colnames(youngControlLeisure) <- c("id_participant", "dob", "leisure_date", "read_books", "read_mag", "produce_art", "engage_writing_projects", "perform_art", "play_games", "engage_hobbies", "meet_friends", "run_elliptical", "swim_exercise", "high_intense_sports", "low_intense_activities", "engage_toning", "bike", "high_exercise_classes")
+
+youngLeisure <- rbind(youngMSLeisure, youngControlLeisure)
+
+#refers to the patient's age at which the score refers
+youngLeisure$score_age <- 22
+youngLeisure$leisure_date <- format(as.POSIXct(youngLeisure$leisure_date, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+
+```
+
+
+
+#Current year
+```{r}
+#Leisure baseline
+currentLeisure1 <- leisureBase[,c("id_participant_l", "dob", "leisure_activity_scale_baseline_timestamp", "leisure_book_reading1", "leisure_mag_reading1", "leisure_visart_reading1", "leisure_write_reading1", "leisure_perform_reading1", "leisure_game_reading1", "leisure_hob_reading1", "leisure_meet_reading1", "leisure_run_reading1", "leisure_swim_reading1", "leisure_sports1", "leisure_exercise1", "leisure_toning1", "leisure_bike1", "leisure_high_classes1")]
+colnames(currentLeisure1) <- c("id_participant", "dob", "leisure_date", "read_books", "read_mag", "produce_art", "engage_writing_projects", "perform_art", "play_games", "engage_hobbies", "meet_friends", "run_elliptical", "swim_exercise", "high_intense_sports", "low_intense_activities", "engage_toning", "bike", "high_exercise_classes")
+
+#Leisure follow-up
+currentLeisure2 <- leisureFollow[,c("id_participant_l", "dob", "leisure_activity_scale_followup_timestamp", "leisure_book_reading", "leisure_mag_reading", "leisure_visart_reading", "leisure_write_reading", "leisure_perform_reading", "leisure_game_reading", "leisure_hob_reading", "leisure_meet_reading", "leisure_run_reading", "leisure_swim_reading", "leisure_sports", "leisure_exercise", "leisure_toning", "leisure_bike", "leisure_high_classes")]
+colnames(currentLeisure2) <- c("id_participant", "dob", "leisure_date", "read_books", "read_mag", "produce_art", "engage_writing_projects", "perform_art", "play_games", "engage_hobbies", "meet_friends", "run_elliptical", "swim_exercise", "high_intense_sports", "low_intense_activities", "engage_toning", "bike", "high_exercise_classes")
+
+currentLeisure <- rbind(currentLeisure1, currentLeisure2)
+
+#refers to the patient's age at which the score refers
+currentLeisure$dob <- format(as.POSIXct(currentLeisure$dob, format = "%Y-%m-%d"), "%Y-%m-%d")
+currentLeisure$leisure_date <- format(as.POSIXct(currentLeisure$leisure_date, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+
+currentLeisure$score_age <- round((difftime(currentLeisure$leisure_date, currentLeisure$dob, units = c("weeks"))/52.25), digits = 2)
+currentLeisure$score_age <- as.numeric(as.character(currentLeisure$score_age))
+
+```
+
+#Combine and score
+```{r}
+leisure_All <- rbind(youngLeisure, currentLeisure)
+
+#find subscores
+  #reading
+  leisure_All$reading_subscore <- rowSums(leisure_All[,c(4:10)])
+  
+  #social
+  leisure_All$social_subscore <- leisure_All$meet_friends
+
+  #physical
+  leisure_All$physical_subscore <- rowSums(leisure_All[,c(12:18)])
+
+
+#find total score
+leisure_All$leisure_total <- rowSums(leisure_All[,c(4:18)])
+leisure_All <- leisure_All %>% filter(!is.na(leisure_total))
+leisure_All <- leisure_All[,c("id_participant", "leisure_date", "score_age", "reading_subscore", "social_subscore", "physical_subscore", "leisure_total")]
+
+#export
+write.csv(leisure_All, "leisure.csv")
+
+
+```
+
+#Basic stats-20s
+```{r}
+youngLeisure <- leisure_All %>% filter(score_age==22.00)
+
+#584 scores
+mean(youngLeisure$leisure_total)  #mean of all scores is 52.2
+sd(youngLeisure$leisure_total)  #sd is 10.1
+range(youngLeisure$leisure_total)  #range is 15-75
+median(youngLeisure$leisure_total)  #median is 53
+
+sum(table(unique(youngLeisure$id_participant)))  #576 participants w/ at least 1 score
+
+test <- data.frame(table(youngLeisure$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 1 score per participant
+test2 <- data.frame(table(test$Freq))
+  #568 participants with 1 score
+  #8 participants with 2 scores
+
+```
+
+#Basic stats-current
+```{r}
+currentLeisure <- leisure_All %>% filter(score_age!=22.00)
+
+#758 scores
+mean(currentLeisure$leisure_total)  #mean of all scores is 57.9
+sd(currentLeisure$leisure_total)  #sd is 7.2
+range(currentLeisure$leisure_total)  #range is 27-75
+median(currentLeisure$leisure_total)  #median is 58
+
+sum(table(unique(currentLeisure$id_participant)))  #548 participants w/ at least 1 score
+
+test <- data.frame(table(currentLeisure$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 1.3 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #342 participants with 1 score
+  #202 participants with 2 scores
+  #4 participants with 3 scores
+
+```
+
+
+#Visualization
+```{r}
+#20s
+hist(youngLeisure$reading_subscore)
+hist(youngLeisure$social_subscore)
+hist(youngLeisure$physical_subscore)
+hist(youngLeisure$leisure_total)
+
+#current
+hist(currentLeisure$reading_subscore)
+hist(currentLeisure$social_subscore)
+hist(currentLeisure$physical_subscore)
+hist(currentLeisure$leisure_total)
+
+#all
+hist(leisure_All$reading_subscore)
+hist(leisure_All$social_subscore)
+hist(leisure_All$physical_subscore)
+hist(leisure_All$leisure_total)
+
+
+```
+
