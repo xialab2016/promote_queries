@@ -39,3 +39,13 @@
    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
 
    Output: Histogram of all total CESD scores, histogram of all earliest total CESD scores, CSV file of all CESD scores.
+
+6. Functional Assessment of Multiple Sclerosis (FAMS)
+
+   Version 1: 2024-04-09
+
+   Finds all FAMS scores and subscores for the PROMOTE study
+
+   Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
+
+   Output: CSV file with FAMS total scores and subscores for all PROMOTE participants, histograms of all total scores/subscores, plot with number of FAMS survey responses over time, histogram of earliest FAMS scores
