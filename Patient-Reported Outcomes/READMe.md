@@ -59,3 +59,13 @@
    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
 
    Output: CSV file with IVIS scores and subscores for all PROMOTE participants, histogram of IVIS total scores
+
+8. Leisure
+
+   Version 1: 2024-04-09
+
+   Finds all leisure scores for the PROMOTE study
+   
+   Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2
+
+   Output: CSV file with all Leisure scores (and ages), histogram of all leisure subscores and total scores in young 20's, histogram of all leisure subscores and total scores for most current response, histogram of all leisure subscores and total scores
