@@ -1,0 +1,254 @@
+---
+title: "MFIS Scoring"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+
+# This code finds all mfis-21 and mfis-5 scores for all PROMOTE participants
+  #MFIS-21: Legacy SRO, Longitudinal SRO, Longitudinal Update
+  #MFIS-5: Sensor monthly, prebiotic
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+#setwd("your_working_directory")
+
+longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+sensor <- read.csv("Sensor.csv") #Export of the whole sensor project
+sensor <- sensor %>% filter(!str_detect(record_id, "_0"))
+
+prebiotic <- read.csv("PrePro.csv") #Export of the whole pre/probiotic project
+prebiotic <- prebiotic %>%
+  group_by(record_id) %>%
+  mutate(promote_id = first(promote_id))
+
+
+```
+
+#MFIS-21
+##Legacy
+```{r}
+mfisLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "mfis_1_alert", "mfis_2_attention", "mfis_3_think", "mfis_4_clumsy", "mfis_5_forgetful", "mfis_6_pace", "mfis_7_effort", "mfis_8_social", "mfis_9_away", "mfis_10_endurance", "mfis_11_decisions", "mfis_12_motivated", "mfis_13_weakness", "mfis_14_discomfort", "mfis_15_thinkingtasks", "mfis_16_organizing", "mfis_17_physicaltasks", "mfis_18_slow", "mfis_19_concentration", "mfis_20_physicallimit", "mfis_21_rest")]
+names(mfisLeg)[2] <- 'mfis_date'
+
+```
+
+##Longitudinal
+```{r}
+#sro and update
+mfisLong <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "mfis_1_alert", "mfis_2_attention", "mfis_3_think", "mfis_4_clumsy", "mfis_5_forgetful", "mfis_6_pace", "mfis_7_effort", "mfis_8_social", "mfis_9_away", "mfis_10_endurance", "mfis_11_decisions", "mfis_12_motivated", "mfis_13_weakness", "mfis_14_discomfort", "mfis_15_thinkingtasks", "mfis_16_organizing", "mfis_17_physicaltasks", "mfis_18_slow", "mfis_19_concentration", "mfis_20_physicallimit", "mfis_21_rest",
+                            "update_questionnaire_timestamp", "mfis_1_alert_a09009", "mfis_2_attention_240a6d", "mfis_3_think_0e5faa", "mfis_4_clumsy_7a36ec", "mfis_5_forgetful_d1ca7b", "mfis_6_pace_c52819", "mfis_7_effort_251423", "mfis_8_social_3966d9", "mfis_9_away_6582eb", "mfis_10_endurance_0af731", "mfis_11_decisions_51dc8d", "mfis_12_motivated_9ff989", "mfis_13_weakness_ff3d7e", "mfis_14_discomfort_4b9cfa", "mfis_15_thinkingtasks_d15a55", "mfis_16_organizing_229b1f", "mfis_17_physicaltasks_8a7d20", "mfis_18_slow_7e7753", "mfis_19_concentration_6fd272", "mfis_20_physicallimit_af05c8", "mfis_21_rest_dc44f0")]
+
+mfisLongDate <- mfisLong %>% gather(dateNumber, mfis_date, 2,24)
+mfisLongScore1 <- mfisLong %>% gather(scoreNumber1, mfis_1_alert, 3,25)
+mfisLongScore2 <- mfisLong %>% gather(scoreNumber2, mfis_2_attention, 4,26)
+mfisLongScore3 <- mfisLong %>% gather(scoreNumber3, mfis_3_think, 5,27)
+mfisLongScore4 <- mfisLong %>% gather(scoreNumber4, mfis_4_clumsy, 6,28)
+mfisLongScore5 <- mfisLong %>% gather(scoreNumber5, mfis_5_forgetful, 7,29)
+mfisLongScore6 <- mfisLong %>% gather(scoreNumber6, mfis_6_pace, 8,30)
+mfisLongScore7 <- mfisLong %>% gather(scoreNumber7, mfis_7_effort, 9,31)
+mfisLongScore8 <- mfisLong %>% gather(scoreNumber8, mfis_8_social, 10,32)
+mfisLongScore9 <- mfisLong %>% gather(scoreNumber9, mfis_9_away, 11,33)
+mfisLongScore10 <- mfisLong %>% gather(scoreNumber10, mfis_10_endurance, 12,34)
+mfisLongScore11 <- mfisLong %>% gather(scoreNumber11, mfis_11_decisions, 13,35)
+mfisLongScore12 <- mfisLong %>% gather(scoreNumber12, mfis_12_motivated, 14,36)
+mfisLongScore13 <- mfisLong %>% gather(scoreNumber13, mfis_13_weakness, 15,37)
+mfisLongScore14 <- mfisLong %>% gather(scoreNumber14, mfis_14_discomfort, 16,38)
+mfisLongScore15 <- mfisLong %>% gather(scoreNumber15, mfis_15_thinkingtasks, 17,39)
+mfisLongScore16 <- mfisLong %>% gather(scoreNumber16, mfis_16_organizing, 18,40)
+mfisLongScore17 <- mfisLong %>% gather(scoreNumber17, mfis_17_physicaltasks, 19,41)
+mfisLongScore18 <- mfisLong %>% gather(scoreNumber18, mfis_18_slow, 20,42)
+mfisLongScore19 <- mfisLong %>% gather(scoreNumber19, mfis_19_concentration, 21,43)
+mfisLongScore20 <- mfisLong %>% gather(scoreNumber20, mfis_20_physicallimit, 22,44)
+mfisLongScore21 <- mfisLong %>% gather(scoreNumber21, mfis_21_rest, 23,45)
+
+mfisLong <- cbind(mfisLongDate, mfisLongScore1, mfisLongScore2, mfisLongScore3, mfisLongScore4, mfisLongScore5, mfisLongScore6, mfisLongScore7, mfisLongScore8, mfisLongScore9, mfisLongScore10, mfisLongScore11, mfisLongScore12, mfisLongScore13, mfisLongScore14, mfisLongScore15, mfisLongScore16, mfisLongScore17, mfisLongScore18, mfisLongScore19, mfisLongScore20, mfisLongScore21)
+names(mfisLong)[1] <- 'id_participant'
+
+mfisLong <- mfisLong[,c("id_participant", "mfis_date", "mfis_1_alert", "mfis_2_attention", "mfis_3_think", "mfis_4_clumsy", "mfis_5_forgetful", "mfis_6_pace", "mfis_7_effort", "mfis_8_social", "mfis_9_away", "mfis_10_endurance", "mfis_11_decisions", "mfis_12_motivated", "mfis_13_weakness", "mfis_14_discomfort", "mfis_15_thinkingtasks", "mfis_16_organizing", "mfis_17_physicaltasks", "mfis_18_slow", "mfis_19_concentration", "mfis_20_physicallimit", "mfis_21_rest")]
+
+```
+
+##Combine and score
+```{r}
+#Combine and score
+mfis_all <- rbind(mfisLeg, mfisLong)
+
+#physical subscale
+mfis_all$mfis_physical <- rowSums(mfis_all[,c(6,8,9,12,15,16,19,22,23)], na.rm = TRUE)
+
+#cognitive subscale
+mfis_all$mfis_cognitive <- rowSums(mfis_all[,c(3,4,5,7,13,14,17,18,20,21)], na.rm = TRUE)
+
+#psychosocial subscale
+mfis_all$mfis_psychosocial <- rowSums(mfis_all[,c(10,11)], na.rm = TRUE)
+
+#add all items
+mfis_all$mfis_total <- rowSums(mfis_all[,c(3:23)], na.rm = TRUE)
+
+#remove scores with 4 or more NAs- not official scoring but mimicking cesd scoring principles
+mfis_all$na_count <- rowSums(is.na(mfis_all))
+mfis_all <- mfis_all %>% filter(na_count<4)
+
+mfis_all <- mfis_all[,c("id_participant", "mfis_date", "mfis_physical", "mfis_cognitive", "mfis_psychosocial", "mfis_total")]
+mfis_all$mfis_date <- as.Date(mfis_all$mfis_date)
+
+#export
+write.csv(mfis_all, "mfis21.csv")
+
+```
+
+##Basic stats
+```{r}
+#1684 scores
+mean(mfis_all$mfis_total)  #mean of all scores is 30.12
+sd(mfis_all$mfis_total)  #sd is 20.88
+range(mfis_all$mfis_total)  #range is 0-84
+median(mfis_all$mfis_total)  #median is 30
+
+sum(table(unique(mfis_all$id_participant)))  #1045 participants w/ at least 1 score
+
+test <- data.frame(table(mfis_all$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 1.61 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #414 participants with 1 score
+  #623 participants with 2 scores
+  #8 participants with 3 scores
+
+#finds info for the first score per participant
+first <- mfis_all %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(mfis_date, default = first(mfis_date), order_by = mfis_date) - mfis_date)
+first <- first %>% filter(diff==0)
+  #first scores for 945 participants
+mean(first$mfis_total)  #mean is 30
+sd(first$mfis_total)  #sd is 20.69
+range(first$mfis_total)  #range is 0-84
+median(first$mfis_total)  #median is 29
+
+```
+
+##Visualization
+```{r}
+hist(mfis_all$mfis_physical)
+hist(mfis_all$mfis_cognitive)
+hist(mfis_all$mfis_psychosocial)
+hist(mfis_all$mfis_total)
+
+```
+
+#MFIS-5
+##Sensor
+```{r}
+mfisSensor <- sensor[,c("record_id", "monthlyq_timestamp", "mfis_1_d9173d", "mfis_2_d71f66", "mfis_3_8c1a00", "mfis_4_89f111", "mfis_5_d8acb1")]
+colnames(mfisSensor) <- c("id_participant", "mfis_date", "mfis_1_alert", "mfis_9_away", "mfis_10_endurance", "mfis_17_physicaltasks", "mfis_19_concentration")
+mfisSensor$mfis_date <- format(as.POSIXct(mfisSensor$mfis_date, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+
+
+```
+
+##Prebiotic
+```{r}
+mfisPre <- prebiotic[,c("promote_id", "modified_fatique_impact_scale_5_items_mfis5_timestamp", "v1_survey_timestamp", "v2_survey_timestamp", "v3_survey_timestamp", "v4_survey_timestamp", "v5_survey_timestamp", "i_have_been_less_alert", "i_have_been_limited_in_my", "i_have_had_trouble_maintai", "i_have_been_less_able_to_c", "i_have_had_trouble_concent")]
+mfisPre$mfis_date<- apply( mfisPre[ , c(2:7) ] , 1 , paste_noNA , sep=sep)
+mfisPre <- mfisPre[,c(1,13,8:12)]
+
+colnames(mfisPre) <- c("id_participant", "mfis_date", "mfis_1_alert", "mfis_9_away", "mfis_10_endurance", "mfis_17_physicaltasks", "mfis_19_concentration")
+mfisPre$mfis_date <- format(as.POSIXct(mfisPre$mfis_date, format = "%Y-%m-%d %H:%M"), "%Y-%m-%d")
+
+```
+
+##Combine and score
+```{r}
+#Combine and score
+mfis5_all <- rbind(mfisSensor, mfisPre)
+
+#add all items- exclude any with at least 1 NA
+mfis5_all$mfis_total <- rowSums(mfis5_all[,c(3:7)])
+
+mfis5_all <- mfis5_all[,c("id_participant", "mfis_date", "mfis_total")]
+mfis5_all$mfis_date <- as.Date(mfis5_all$mfis_date)
+
+mfis5_all <- mfis5_all %>% filter(!is.na(mfis_total))
+
+#export
+write.csv(mfis5_all, "mfis5.csv")
+
+```
+
+##Basic stats
+```{r}
+#632 scores
+mean(mfis5_all$mfis_total)  #mean of all scores is 7.59
+sd(mfis5_all$mfis_total)  #sd is 4.81
+range(mfis5_all$mfis_total)  #range is 0-20
+median(mfis5_all$mfis_total)  #median is 7
+
+sum(table(unique(mfis5_all$id_participant)))  #120 participants w/ at least 1 score
+
+test <- data.frame(table(mfis5_all$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 5.26 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #5 participants with 1 score
+  #1 participants with 2 scores
+  #2 participants with 3 scores
+  #62 participants with 4 scores
+  #11 participants with 5 scores
+  #2 participants with 6 scores
+  #4 participants with 7 scores
+  #28 participants with 8 scores
+  #3 participants with 9 scores
+  #1 participants with 12 scores
+  #1 participants with 13 scores
+
+#finds info for the first score per participant
+first <- mfis5_all %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(mfis_date, default = first(mfis_date), order_by = mfis_date) - mfis_date)
+first <- first %>% filter(diff==0)
+  #first scores for 119 participants
+mean(first$mfis_total)  #mean is 7.92
+sd(first$mfis_total)  #sd is 4.92
+range(first$mfis_total)  #range is 0-19
+median(first$mfis_total)  #median is 7
+
+```
+
+##Visualization
+```{r}
+hist(mfis5_all$mfis_total)
+
+```
+
+
+
+
