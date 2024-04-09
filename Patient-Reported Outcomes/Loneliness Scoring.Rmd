@@ -1,0 +1,131 @@
+---
+title: "Loneliness Scoring"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+
+# This code finds all ucla loneliness scores for all PROMOTE participants
+  #Loneliness: Longitudinal, covid
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+#setwd("your_working_directory")
+
+longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+covid <- read.csv("covid_long.csv") #Export of the whole original covid project
+
+
+```
+
+#Longitudinal
+```{r}
+loneLong <- longitudinal[,c(1,2827:2847)]
+colnames(loneLong) <- c("id_participant", "loneliness_date", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15", "q16", "q17", "q18", "q19", "q20")
+
+```
+
+
+#Covid
+```{r}
+loneCovid <- covid[,c(1,417:437)]
+colnames(loneCovid) <- c("id_participant", "loneliness_date", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15", "q16", "q17", "q18", "q19", "q20")
+
+```
+
+#Combine and score
+```{r}
+#combine
+lone_All <- rbind(loneLong, loneCovid)
+
+#score
+#reverse items 1, 5, 6, 9, 10, 15, 16, 19, 20
+lone_All$q1 <- factor(lone_All$q1, levels = c(1,2,3,4), labels = c(4,3,2,1))
+lone_All$q5 <- factor(lone_All$q5, levels = c(1,2,3,4), labels = c(4,3,2,1))
+lone_All$q6 <- factor(lone_All$q6, levels = c(1,2,3,4), labels = c(4,3,2,1))
+lone_All$q9 <- factor(lone_All$q9, levels = c(1,2,3,4), labels = c(4,3,2,1))
+lone_All$q10 <- factor(lone_All$q10, levels = c(1,2,3,4), labels = c(4,3,2,1))
+lone_All$q15 <- factor(lone_All$q15, levels = c(1,2,3,4), labels = c(4,3,2,1))
+lone_All$q16 <- factor(lone_All$q16, levels = c(1,2,3,4), labels = c(4,3,2,1))
+lone_All$q19 <- factor(lone_All$q19, levels = c(1,2,3,4), labels = c(4,3,2,1))
+lone_All$q20 <- factor(lone_All$q20, levels = c(1,2,3,4), labels = c(4,3,2,1))
+
+lone_All$q1 <- as.numeric(as.character(lone_All$q1))
+lone_All$q5 <- as.numeric(as.character(lone_All$q5))
+lone_All$q6 <- as.numeric(as.character(lone_All$q6))
+lone_All$q9 <- as.numeric(as.character(lone_All$q9))
+lone_All$q10 <- as.numeric(as.character(lone_All$q10))
+lone_All$q15 <- as.numeric(as.character(lone_All$q15))
+lone_All$q16 <- as.numeric(as.character(lone_All$q16))
+lone_All$q19 <- as.numeric(as.character(lone_All$q19))
+lone_All$q20 <- as.numeric(as.character(lone_All$q20))
+
+#total
+lone_All$lone_total <- rowSums(lone_All[,c(3:22)])
+lone_All <- lone_All %>% filter(!is.na(lone_total))
+
+#export
+write.csv(lone_All, "loneliness.csv")
+
+```
+
+
+#Basic stats
+```{r}
+#1205 scores
+mean(lone_All$lone_total)  #mean of all scores is 39.2
+sd(lone_All$lone_total)  #sd is 11.9
+range(lone_All$lone_total)  #range is 20-77
+median(lone_All$lone_total)  #median is 38
+
+sum(table(unique(lone_All$id_participant)))  #666 participants w/ at least 1 score
+
+test <- data.frame(table(lone_All$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 1.8 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #287 participants with 1 score
+  #222 participants with 2 scores
+  #154 participants with 3 scores
+
+#info for first scores only
+lone_All$loneliness_date <- as.Date(lone_All$loneliness_date)
+first <- lone_All %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(loneliness_date, default = first(loneliness_date), order_by = loneliness_date) - loneliness_date)
+first <- first %>% filter(diff==0)
+  #first scores for 373 participants
+mean(first$lone_total)  #mean is 40.2
+sd(first$lone_total)  #sd is 12.3
+range(first$lone_total)  #range is 20-77
+median(first$lone_total)  #median is 39
+
+
+```
+
+#Visualization
+```{r}
+hist(lone_All$lone_total)
+
+```
+
+
