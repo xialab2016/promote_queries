@@ -69,3 +69,11 @@
    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2
 
    Output: CSV file with all Leisure scores (and ages), histogram of all leisure subscores and total scores in young 20's, histogram of all leisure subscores and total scores for most current response, histogram of all leisure subscores and total scores
+
+9. Loneliness
+
+    Finds all UCLA Loneliness Scale scores for the PROMOTE study
+
+   Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2
+
+   Output: CSV file with all Loneliness scores for PROMOTE participants, histogram of all loneliness scores
