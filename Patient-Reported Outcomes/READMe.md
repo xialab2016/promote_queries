@@ -85,3 +85,11 @@
     Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2
 
     Output: CSV file with combined Longitudinal projects
+
+11. Modified Fatigue Impact Scale (MFIS)
+
+    Finds all MFIS-21 and MFIS-5 scores for the PROMOTE study
+
+    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers, Sensor, PrePro
+
+    Output: CSV file of all MFIS-21 scores for PROMOTE participants, histogram of all MFIS-21 physical/cognitive/psychosocial/total scores, CSV file of all MFIS-5 scores for PROMOTE participants, histogram of all MFIS-5 total scores
