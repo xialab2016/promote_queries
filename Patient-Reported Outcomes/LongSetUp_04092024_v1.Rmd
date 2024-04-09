@@ -21,6 +21,8 @@ library(dplyr)
 ```
 
 ```{r}
+setwd("your_working_directory")
+
 longitudinal1 <- read.csv("long1.csv") #Original longitudinal project
 longitudinal2 <- read.csv("long2.csv") #2nd longitudinal project
 
