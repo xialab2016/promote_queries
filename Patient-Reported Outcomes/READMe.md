@@ -72,8 +72,16 @@
 
 9. Loneliness
 
-    Finds all UCLA Loneliness Scale scores for the PROMOTE study
+   Finds all UCLA Loneliness Scale scores for the PROMOTE study
 
    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2
 
    Output: CSV file with all Loneliness scores for PROMOTE participants, histogram of all loneliness scores
+
+10. LongSetUp
+
+    Combines the two PROMOTE Longitudinal Projects for use in weekly report and other queries
+
+    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2
+
+    Output: CSV file with combined Longitudinal projects
