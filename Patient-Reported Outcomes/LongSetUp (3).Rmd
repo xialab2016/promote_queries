@@ -1,0 +1,32 @@
+---
+title: "Longitudinal Set Up"
+author: "Libby Walker"
+date: "1/8/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(stringr)
+library(tidyr)
+library(plyr)
+library(dplyr)
+
+#This code combines the two longitudinal projects for the weekly report and other analyses
+
+#CHANGE FILE PATHS
+
+```
+
+```{r}
+longitudinal1 <- read.csv("long1.csv") #Original longitudinal project
+longitudinal2 <- read.csv("long2.csv") #2nd longitudinal project
+
+longitudinal_final <- rbind(longitudinal1, longitudinal2)
+write.csv(longitudinal_final, "PROMOTELongitudinal.csv")
+  #This is the file that should be used on OneDrive and for other coding
+
+```
+
