@@ -25,7 +25,7 @@ library(knitr)
 
 #Import Files
 ```{r}
-#setwd("your_working_directory")
+setwd("your_working_directory")
 
 longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
 longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
