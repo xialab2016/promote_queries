@@ -1,0 +1,240 @@
+---
+title: "PainQuery2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+
+# This code finds all psqi scores for all PROMOTE participants
+  # Files needed: Longitudinal, Legacy SRO, Legacy SNQ, MissingIDs, sensor
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+setwd("your_working_directory")
+
+long1 <- read.csv("long1.csv") 
+long2 <- read.csv("long2.csv") 
+long <- rbind(long1, long2) 
+longitudinal <- long #Combined longitudinal projects
+
+legacy <- read.csv("legacy_pq_sro.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+```
+
+#Legacy
+```{r}
+psqiLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "psqi_1_bedtime", "psqi_2_sleepstart", "psqi_3_waketime", "psqi_4_sleeptime", "psqi_5a_sleepstart30mins", "psqi_5b_sleepinterrupt", "psqi_5c_bathroom", "psqi_5d_respiratory", "psqi_5e_cough", "psqi_5f_cold", "psqi_5g_hot", "psqi_5h_nightmare", "psqi_5i_pain", "psqi_5j_other", "psqi_other", "psqi_6_sleepmed", "psqi_7_daydrowsy", "psqi_8_enthusiasm", "psqi_overall")]
+names(psqiLeg)[2] <- 'psqi_date'
+
+```
+
+#Longitudinal
+```{r}
+psqiLong <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "psqi_1_bedtime", "psqi_2_sleepstart", "psqi_3_waketime", "psqi_4_sleeptime", "psqi_5a_sleepstart30mins", "psqi_5b_sleepinterrupt", "psqi_5c_bathroom", "psqi_5d_respiratory", "psqi_5e_cough", "psqi_5f_cold", "psqi_5g_hot", "psqi_5h_nightmare", "psqi_5i_pain", "psqi_5j_other", "psqi_other", "psqi_6_sleepmed", "psqi_7_daydrowsy", "psqi_8_enthusiasm", "psqi_overall", "update_questionnaire_timestamp", "psqi_1_bedtime_56da7e", "psqi_2_sleepstart_6c100e", "psqi_3_waketime_b84e9d", "psqi_4_sleeptime_46998d", "psqi_5a_sleepstart30mins_4c450e", "psqi_5b_sleepinterrupt_f5da7f", "psqi_5c_bathroom_07913d", "psqi_5d_respiratory_e1eba0", "psqi_5e_cough_7bac2c", "psqi_5f_cold_6c2977", "psqi_5g_hot_e09818", "psqi_5h_nightmare_0ebca8", "psqi_5i_pain_e1c9e2", "psqi_5j_other_c6176a", "psqi_other_bfda80", "psqi_6_sleepmed_eddc53", "psqi_7_daydrowsy_cb0d8d", "psqi_8_enthusiasm_c34413", "psqi_overall_f6b57d")]
+
+psqiLongDate <- psqiLong %>% gather(dateNumber, psqi_date1, 2,22)
+psqiLongScore1 <- psqiLong %>% gather(scoreNumber1, psqi_1, 3,23)
+  psqiLongScore1$psqi_1 <- format(as.POSIXct(psqiLongScore1$psqi_1, format = "%H:%M"), "%H:%M")
+psqiLongScore2 <- psqiLong %>% gather(scoreNumber2, psqi_2, 4,24)
+psqiLongScore3 <- psqiLong %>% gather(scoreNumber3, psqi_3, 5,25)
+  psqiLongScore3$psqi_3 <- format(as.POSIXct(psqiLongScore3$psqi_3, format = "%H:%M"), "%H:%M")
+psqiLongScore4 <- psqiLong %>% gather(scoreNumber4, psqi_4, 6,26)
+psqiLongScore5 <- psqiLong %>% gather(scoreNumber5, psqi_5a, 7,27)
+psqiLongScore6 <- psqiLong %>% gather(scoreNumber6, psqi_5b, 8,28)
+psqiLongScore7 <- psqiLong %>% gather(scoreNumber7, psqi_5c, 9,29)
+psqiLongScore8 <- psqiLong %>% gather(scoreNumber8, psqi_5d, 10,30)
+psqiLongScore9 <- psqiLong %>% gather(scoreNumber9, psqi_5e, 11,31)
+psqiLongScore10 <- psqiLong %>% gather(scoreNumber10, psqi_5f, 12,32)
+psqiLongScore11 <- psqiLong %>% gather(scoreNumber11, psqi_5g, 13,33)
+psqiLongScore12 <- psqiLong %>% gather(scoreNumber12, psqi_5h, 14,34)
+psqiLongScore13 <- psqiLong %>% gather(scoreNumber13, psqi_5i, 15,35)
+psqiLongScore14 <- psqiLong %>% gather(scoreNumber14, psqi_5j, 16,36)
+psqiLongScore15 <- psqiLong %>% gather(scoreNumber15, psqi_other1, 17,37)
+psqiLongScore16 <- psqiLong %>% gather(scoreNumber16, psqi_6, 18,38)
+psqiLongScore17 <- psqiLong %>% gather(scoreNumber17, psqi_7, 19,39)
+psqiLongScore18 <- psqiLong %>% gather(scoreNumber18, psqi_8, 20,40)
+psqiLongScore19 <- psqiLong %>% gather(scoreNumber19, psqi_overall1, 21,41)
+
+psqiLong <- cbind(psqiLongDate, psqiLongScore1, psqiLongScore2, psqiLongScore3, psqiLongScore4, psqiLongScore5, psqiLongScore6, psqiLongScore7, psqiLongScore8, psqiLongScore9, psqiLongScore10, psqiLongScore11, psqiLongScore12, psqiLongScore13, psqiLongScore14, psqiLongScore15, psqiLongScore16, psqiLongScore17, psqiLongScore18, psqiLongScore19)
+psqiLong<- psqiLong[,c("id_participant_l", "psqi_date1", "psqi_1", "psqi_2", "psqi_3", "psqi_4", "psqi_5a", "psqi_5b", "psqi_5c", "psqi_5d", "psqi_5e", "psqi_5f", "psqi_5g", "psqi_5h", "psqi_5i", "psqi_5j", "psqi_other1", "psqi_6", "psqi_7", "psqi_8", "psqi_overall1")]
+
+psqiLong <- psqiLong %>% filter((str_detect(psqi_date1, "20")) | (str_detect(psqi_date1, "not")))
+
+names(psqiLong)[1] <- 'id_participant'
+names(psqiLong)[2] <- 'psqi_date'
+names(psqiLong)[3] <- 'psqi_1_bedtime'
+names(psqiLong)[4] <- 'psqi_2_sleepstart'
+names(psqiLong)[5] <- 'psqi_3_waketime'
+names(psqiLong)[6] <- 'psqi_4_sleeptime'
+names(psqiLong)[7] <- 'psqi_5a_sleepstart30mins'
+names(psqiLong)[8] <- 'psqi_5b_sleepinterrupt'
+names(psqiLong)[9] <- 'psqi_5c_bathroom'
+names(psqiLong)[10] <- 'psqi_5d_respiratory'
+names(psqiLong)[11] <- 'psqi_5e_cough'
+names(psqiLong)[12] <- 'psqi_5f_cold'
+names(psqiLong)[13] <- 'psqi_5g_hot'
+names(psqiLong)[14] <- 'psqi_5h_nightmare'
+names(psqiLong)[15] <- 'psqi_5i_pain'
+names(psqiLong)[16] <- 'psqi_5j_other'
+names(psqiLong)[17] <- 'psqi_other'
+names(psqiLong)[18] <- 'psqi_6_sleepmed'
+names(psqiLong)[19] <- 'psqi_7_daydrowsy'
+names(psqiLong)[20] <- 'psqi_8_enthusiasm'
+names(psqiLong)[21] <- 'psqi_overall'
+
+```
+
+#Combine & score
+```{r}
+#combine- 1606 scores (no records in leg)
+psqi_all <- rbind(psqiLeg, psqiLong)
+
+#Component 1- Q9
+psqi_all$comp_1 <- psqi_all$psqi_overall
+
+#Component 2- Q2 (pre-coded) + Q5a (need to code)
+  ##Q5a
+psqi_all$psqi_2_sleepstart <- ifelse(psqi_all$psqi_2_sleepstart<=15, 0, psqi_all$psqi_2_sleepstart)
+psqi_all$psqi_2_sleepstart <- ifelse(psqi_all$psqi_2_sleepstart>=16 & psqi_all$psqi_2_sleepstart<=30, 1, psqi_all$psqi_2_sleepstart)
+psqi_all$psqi_2_sleepstart <- ifelse(psqi_all$psqi_2_sleepstart>=31 & psqi_all$psqi_2_sleepstart<=60, 2, psqi_all$psqi_2_sleepstart)
+psqi_all$psqi_2_sleepstart <- ifelse(psqi_all$psqi_2_sleepstart>60, 3, psqi_all$psqi_2_sleepstart)
+  #sum for comp 2
+psqi_all$comp_2 <- (psqi_all$psqi_2_sleepstart + psqi_all$psqi_5a)
+  ##code total score for comp 2
+psqi_all$comp_2 <- ifelse(psqi_all$comp_2<=0, 0, psqi_all$comp_2)
+psqi_all$comp_2 <- ifelse(psqi_all$comp_2>=1 & psqi_all$comp_2<=2, 1, psqi_all$comp_2)
+psqi_all$comp_2 <- ifelse(psqi_all$comp_2>=3 & psqi_all$comp_2<=4, 2, psqi_all$comp_2)
+psqi_all$comp_2 <- ifelse(psqi_all$comp_2>=5 & psqi_all$comp_2<=6, 3, psqi_all$comp_2)
+
+#Component 3- Q4
+psqi_all$comp_3 <- psqi_all$psqi_4
+psqi_all$comp_3 <- ifelse(psqi_all$comp_3<5, 3, psqi_all$psqi_4)
+psqi_all$comp_3 <- ifelse(psqi_all$comp_3>=5 & psqi_all$comp_3<=6, 2, psqi_all$comp_3)
+psqi_all$comp_3 <- ifelse(psqi_all$comp_3>6 & psqi_all$comp_3<=7, 1, psqi_all$comp_3)
+psqi_all$comp_3 <- ifelse(psqi_all$comp_3>7, 0, psqi_all$comp_3)
+
+#Component 4- Q1, Q3, and Q4
+psqi_all$psqi_1_bedtime <- paste("01-01-2022", psqi_all$psqi_1_bedtime, sep=" ")
+psqi_all$psqi_1_bedtime <- as.POSIXct(psqi_all$psqi_1_bedtime, format = "%m-%d-%Y %H:%M")
+psqi_all$psqi_3_waketime <- paste("01-02-2022", psqi_all$psqi_3_waketime, sep=" ")
+psqi_all$psqi_3_waketime <- as.POSIXct(psqi_all$psqi_3_waketime, format = "%m-%d-%Y %H:%M")
+
+  #sleep efficiency ((slept/inbed)100%)
+psqi_all$hours_in_bed <- difftime(psqi_all$psqi_3_waketime, psqi_all$psqi_1_bedtime, units = "hours")
+psqi_all$hours_in_bed <- as.numeric(round(psqi_all$hours_in_bed, digits = 2))
+  #Calculate sleep efficiency and find %
+psqi_all$sleep_efficiency <- (psqi_all$psqi_4/psqi_all$hours_in_bed)*100
+psqi_all$sleep_efficiency <- round(psqi_all$sleep_efficiency, digits = 0)
+
+  #Assign the final value and calculate sub4
+psqi_all$comp_4 <- ifelse(psqi_all$sleep_efficiency>=85, 0, psqi_all$sleep_efficiency)
+psqi_all$comp_4 <- ifelse(psqi_all$sleep_efficiency>=75 & psqi_all$sleep_efficiency<=84, 1, psqi_all$comp_4)
+psqi_all$comp_4 <- ifelse(psqi_all$sleep_efficiency>=65 & psqi_all$sleep_efficiency<=74, 2, psqi_all$comp_4)
+psqi_all$comp_4 <- ifelse(psqi_all$sleep_efficiency<65, 3, psqi_all$comp_4)
+
+#Component 5- Q5b-Q5j adjusted
+psqi_all$comp_5 <- (psqi_all$psqi_5b + psqi_all$psqi_5c + psqi_all$psqi_5d + psqi_all$psqi_5e + psqi_all$psqi_5f + psqi_all$psqi_5g + psqi_all$psqi_5h + psqi_all$psqi_5i + psqi_all$psqi_5j)
+
+psqi_all$comp_5 <- ifelse(psqi_all$comp_5==0, 0, psqi_all$comp_5)
+psqi_all$comp_5 <- ifelse(psqi_all$comp_5>=1 & psqi_all$comp_5<=9, 1, psqi_all$comp_5)
+psqi_all$comp_5 <- ifelse(psqi_all$comp_5>=10 & psqi_all$comp_5<=18, 2, psqi_all$comp_5)
+psqi_all$comp_5 <- ifelse(psqi_all$comp_5>=19 & psqi_all$comp_5<=27, 3, psqi_all$comp_5)
+
+#Component 6- Q6
+psqi_all$comp_6 <- psqi_all$psqi_6
+
+#Component 7- Q7 + Q8 adjusted
+psqi_all$comp_7 <- (psqi_all$psqi_7 + psqi_all$psqi_8)
+
+psqi_all$comp_7 <- ifelse(psqi_all$comp_7==0, 0, psqi_all$comp_7)
+psqi_all$comp_7 <- ifelse(psqi_all$comp_7>=1 & psqi_all$comp_7<=2, 1, psqi_all$comp_7)
+psqi_all$comp_7 <- ifelse(psqi_all$comp_7>=3 & psqi_all$comp_7<=4, 2, psqi_all$comp_7)
+psqi_all$comp_7 <- ifelse(psqi_all$comp_7>=5 & psqi_all$comp_7<=6, 3, psqi_all$comp_7)
+
+#OVERALL PSQI
+psqi_all$psqi_total <- (psqi_all$comp_1 + psqi_all$comp_2 + psqi_all$comp_3 + psqi_all$comp_4 + psqi_all$comp_5 + psqi_all$comp_6 + psqi_all$comp_7)
+
+psqi_all$psqi_1_bedtime <- gsub("2022-01-01 ", "", psqi_all$psqi_1_bedtime)
+psqi_all$psqi_3_waketime <- gsub("2022-01-02 ", "", psqi_all$psqi_3_waketime)
+psqi_all <- psqi_all %>% filter(!is.na(psqi_total))
+
+psqi_all <- psqi_all[,c("id_participant", "psqi_date", "psqi_5i_pain", "comp_1", "comp_2", "comp_3", "comp_4", "comp_5", "comp_6", "comp_7", "psqi_total")]
+psqi_all <- psqi_all[order(psqi_all$id_participant, psqi_all$psqi_date), ]
+psqi_all$psqi_date <- as.Date(psqi_all$psqi_date)
+
+#export
+library(writexl)
+write.csv(psqi_all, "psqi_output.xlsx")
+
+
+```
+
+```{r}
+write.csv(psqi_all, "psqi.csv")
+```
+
+#Basic stats
+```{r}
+#2009 scores
+mean(psqi_all$psqi_total)  #mean of all scores is 8.24
+sd(psqi_all$psqi_total)  #sd is 4.05
+range(psqi_all$psqi_total)  #range is 0-21
+median(psqi_all$psqi_total)  #median is 8
+
+sum(table(unique(psqi_all$id_participant)))  #1027 participants w/ at least 1 score
+
+test <- data.frame(table(psqi_all$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 1.96 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #528 participants with 1 score
+  #218 participants with 2 scores
+  #136 participants with 3 scores
+  #88 participants with 4 scores
+  #57 participants with 5 scores
+
+#finds info for the first score per participant
+first <- psqi_all %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(psqi_date, default = first(psqi_date), order_by = psqi_date) - psqi_date)
+first <- first %>% filter(diff==0)
+  #first scores for 967 participants (not 1170 because some scores don't have timestamps- that disqualifies all scores for that participant b/c we can't tell which score is first)
+mean(first$psqi_total)  #mean is 8.43
+sd(first$psqi_total)  #sd is 4.15
+range(first$psqi_total)  #range is 0-21
+median(first$psqi_total)  #median is 8
+
+
+```
+
+#Visualization
+```{r}
+hist(psqi_all$psqi_total)
+
+```
+
+
+
+
+
