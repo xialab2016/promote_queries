@@ -159,3 +159,13 @@
     Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
 
     Output: CSV file with all PDQ responses and total scores, histogram of PDQ total scores, histogram of earliest PDQ response
+
+25. PROMIS Fatigue
+
+    Version 1: 2024-04-15
+
+    Scores all PROMIS responses for the PROMOTE project
+
+    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers, Legacy SNQ, Covid Longitudinal, Covid Vaccine, Sensor, PrePro, PASC
+
+    Output: CSV file with all PROMIS-Physical scores, histogram of all PROMIS-Physical scores, histogram of all PROMIS-Physical scores per year, CSV file with all mediam PROMIS-Physical scores per year, CSV file with all PROMIS-Cognitive scores, histogram of all PROMIS-Cognitive scores, histogram of all PROMIS-Cognitive scores per year, CSV file with all mediam PROMIS-Cognitive scores per year, CSV file with all PROMIS-Depression scores, histogram of all PROMIS-Depression scores, histogram of all PROMIS-Depression scores per year, CSV file with all mediam PROMIS-Depression scores per year
