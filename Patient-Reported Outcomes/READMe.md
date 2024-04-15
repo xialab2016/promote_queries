@@ -125,3 +125,11 @@
     Input: PROMOTEDatabase
 
     Output: A table with demographic information for all PROMOTE participants, and a table with demographic information for all PROMOTE MS participants
+
+16. Pain Query
+
+    This code finds preliminary PES info- # completed, # unique prts. Also finds info for associated measures: social support, anxiety, depression, fatigue
+
+   Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers, Covid Longitudinal, Covid Vaccine, Sensor, PrePro
+
+   Output: CSV file with all PES scores for PROMOTE participants, completion table to generate list of unique participants with at least one PES score
