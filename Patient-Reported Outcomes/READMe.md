@@ -180,4 +180,12 @@
 
     Output: CSV file with all PSQI scores for PROMOTE project, histogram of all PSQI scores
 
-    
+27. Perceived Stress Scale (PSS)
+
+    Version 1: 2024-04-15
+
+    Scores all PSS responses from the Sensor project
+
+    Input: Sensor
+
+    Output: CSV file with all PSS scores from the Sensor project, histogram of all PSS scores
