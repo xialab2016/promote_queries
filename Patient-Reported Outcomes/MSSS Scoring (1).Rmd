@@ -1,0 +1,159 @@
+---
+title: "MSSS Scoring"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+
+# This code finds all msss scores for all PROMOTE participants
+  #MSSS-5: Longitudinal SRO & Update, Legacy SRO, COVID Baseline & Monthly & Quarterly
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+setwd("your_working_directory")
+
+longitudinal <- read.csv("PROMOTELongitudinal.csv") #Combined longitudinal projects
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+covid <- read.csv("covid_long.csv") #Export of the whole original covid project
+
+```
+
+#Legacy
+```{r}
+#SRO
+msssLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "msss5_1_doctor", "msss5_2_goodtime", "msss5_3_hug", "msss5_4_meals", "msss5_5_understand")]
+names(msssLeg)[2] <- 'msss_date'
+names(msssLeg)[3] <- 'msss_1_doctor'
+names(msssLeg)[4] <- 'msss_2_goodtime'
+names(msssLeg)[5] <- 'msss_3_hug'
+names(msssLeg)[6] <- 'msss_4_meals'
+names(msssLeg)[7] <- 'msss_5_understand'
+
+```
+
+#Longitudinal
+```{r}
+#SRO & Update
+msssLong <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "msss5_1_doctor", "msss5_2_goodtime", "msss5_3_hug", "msss5_4_meals", "msss5_5_understand",
+                            "update_questionnaire_timestamp", "msss5_1_doctor_f22496", "msss5_2_goodtime_06c606", "msss5_3_hug_6086c5", "msss5_4_meals_720ba4", "msss5_5_understand_86cd2c")]
+
+msssLongDate <- msssLong %>% gather(dateNumber, msss_date, 2,8)
+msssLongScore1 <- msssLong %>% gather(scoreNumber1, msss_1_doctor, 3,9)
+msssLongScore2 <- msssLong %>% gather(scoreNumber2, msss_2_goodtime, 4,10)
+msssLongScore3 <- msssLong %>% gather(scoreNumber3, msss_3_hug, 5,11)
+msssLongScore4 <- msssLong %>% gather(scoreNumber4, msss_4_meals, 6,12)
+msssLongScore5 <- msssLong %>% gather(scoreNumber5, msss_5_understand, 7,13)
+
+msssLong <- cbind(msssLongDate, msssLongScore1, msssLongScore2, msssLongScore3, msssLongScore4, msssLongScore5)
+msssLong <- msssLong[,c("id_participant_l", "msss_date", "msss_1_doctor", "msss_2_goodtime", "msss_3_hug", "msss_4_meals", "msss_5_understand")]
+names(msssLong)[1] <- 'id_participant'
+
+```
+
+#COVID
+```{r}
+#Baseline & Monthly & Quarterly
+
+msssCovid <- covid[,c("id_participant_l", "covid19_baseline_timestamp", "msss5_1_doctor_baseline", "msss5_2_goodtime_baseline", "msss5_3_hug_baseline", "msss5_4_meals_baseline", "msss5_5_understand_baseline",
+                      "covid19_monthly_timestamp", "msss5_1_doctor_monthly", "msss5_2_goodtime_monthly", "msss5_3_hug_monthly", "msss5_4_meals_monthly", "msss5_5_understand_monthly",
+                      "covid19_quarterly_timestamp", "msss5_1_doctor_3m", "msss5_2_goodtime_3m", "msss5_3_hug_3m", "msss5_4_meals_3m", "msss5_5_understand_3m")]
+
+msssCovidDate <- msssCovid %>% gather(dateNumber, msss_date, 2,8,14)
+msssCovidScore1 <- msssCovid %>% gather(scoreNumber1, msss_1_doctor, 3,9,15)
+msssCovidScore2 <- msssCovid %>% gather(scoreNumber2, msss_2_goodtime, 4,10,16)
+msssCovidScore3 <- msssCovid %>% gather(scoreNumber3, msss_3_hug, 5,11,17)
+msssCovidScore4 <- msssCovid %>% gather(scoreNumber4, msss_4_meals, 6,12,18)
+msssCovidScore5 <- msssCovid %>% gather(scoreNumber5, msss_5_understand, 7,13,19)
+
+msssCovid <- cbind(msssCovidDate, msssCovidScore1, msssCovidScore2, msssCovidScore3, msssCovidScore4, msssCovidScore5)
+msssCovid <- msssCovid[,c("id_participant_l", "msss_date", "msss_1_doctor", "msss_2_goodtime", "msss_3_hug", "msss_4_meals", "msss_5_understand")]
+names(msssCovid)[1] <- 'id_participant'
+
+
+```
+
+#Combine and score
+```{r}
+#Combine
+msss_All <- rbind(msssLeg, msssLong, msssCovid)
+
+#add all items
+msss_All$msss_total <- rowSums(msss_All[,c(3:7)])
+  #transformed score (per MSQIL guide)
+msss_All$msss_transformed <- ((((msss_All$msss_total)-5)/20)*100)
+msss_All <- msss_All %>% filter(!is.na(msss_total))
+
+#export
+write.csv(msss_All, "msss.csv")
+
+```
+
+#Basic stats
+```{r}
+#7261 scores
+mean(msss_All$msss_total)  #mean of all scores is 20.28
+sd(msss_All$msss_total)  #sd is 5.1
+range(msss_All$msss_total)  #range is 5-25
+median(msss_All$msss_total)  #median is 21
+
+sum(table(unique(msss_All$id_participant)))  #1289 participants w/ at least 1 score
+
+test <- data.frame(table(msss_All$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 5.63 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #504 participants with 1 score
+  #203 participants with 2 scores
+  #82 participants with 3 scores
+  #54 participants with 19 scores
+
+#finds info for the first score per participant
+msss_All$msss_date <- as.Date(msss_All$msss_date)
+first <- msss_All %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(msss_date, default = first(msss_date), order_by = msss_date) - msss_date)
+first <- first %>% filter(diff==0)
+  #first scores for 1192 participants
+mean(first$msss_total)  #mean is 19.6
+sd(first$msss_total)  #sd is 5.3
+range(first$msss_total)  #range is 5-25
+median(first$msss_total)  #median is 21
+
+```
+
+#Visualization
+```{r}
+hist(msss_All$msss_total)
+hist(msss_All$msss_transformed)
+
+```
+
+
+
+
+
+
