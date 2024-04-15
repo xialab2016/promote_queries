@@ -1,0 +1,24 @@
+---
+title: "Legacy Missing ID Link Code"
+output: html_document
+date: "2023-07-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+#Code to link missing promote IDs to the legacy PQ/SRO project
+#no packages required
+#copy the following code into any scripts that require the legacy PQ/SRO project data
+
+legacy <- read.csv("PQ_SRO_Legacy.csv")
+missingID <- read.csv("MissingIdentifiers.csv")
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+```
+
