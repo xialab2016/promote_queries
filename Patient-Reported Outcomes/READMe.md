@@ -71,6 +71,8 @@
    Output: CSV file with all Leisure scores (and ages), histogram of all leisure subscores and total scores in young 20's, histogram of all leisure subscores and total scores for most current response, histogram of all leisure subscores and total scores
 
 9. Loneliness
+   
+   Version 1: 2024-04-09
 
    Finds all UCLA Loneliness Scale scores for the PROMOTE study
 
@@ -78,7 +80,9 @@
 
    Output: CSV file with all Loneliness scores for PROMOTE participants, histogram of all loneliness scores
 
-10. LongSetUp
+11. LongSetUp
+
+    Version 1: 2024-04-09
 
     Combines the two PROMOTE Longitudinal Projects for use in weekly report and other queries
 
@@ -86,7 +90,9 @@
 
     Output: CSV file with combined Longitudinal projects
 
-11. Modified Fatigue Impact Scale (MFIS)
+13. Modified Fatigue Impact Scale (MFIS)
+
+    Version 1: 2024-04-09
 
     Finds all MFIS-21 and MFIS-5 scores for the PROMOTE study
 
@@ -94,7 +100,9 @@
 
     Output: CSV file of all MFIS-21 scores for PROMOTE participants, histogram of all MFIS-21 physical/cognitive/psychosocial/total scores, CSV file of all MFIS-5 scores for PROMOTE participants, histogram of all MFIS-5 total scores
 
-12. Legacy Missing ID Link Code
+15. Legacy Missing ID Link Code
+
+    Version 1: 2024-04-15
 
     Code to link missing promote IDs to the legacy PQ/SRO project
 
@@ -102,7 +110,9 @@
 
     Output: None (is just a chunk of code that can be copied into new queries using Legacy PQ/SRO)
 
-13. Multiple Sclerosis Severity Score (MSSS)
+17. Multiple Sclerosis Severity Score (MSSS)
+
+    Version 1: 2024-04-15
 
     Scores and transforms all MSSS scores (per MSQIL guide) for the PROMOTE project
 
@@ -110,7 +120,9 @@
 
     Output: CSV file of all MSSS scores for PROMOTE participants, histogram of all total MSSS scores, histogram of all transformed MSSS scores
 
-14. NEO Five Factor Inventory (NEOFFI)
+19. NEO Five Factor Inventory (NEOFFI)
+
+    Version 1: 2024-04-15
 
     Scores all NEOFFI questionnaires for the PROMOTE project
 
@@ -118,7 +130,9 @@
 
     Output: CSV file of all NEOFFI scores for PROMOTE participants, histogram of each factor (and histogram of the t-score for each factor)
 
-15. NIH Enrollment Report
+21. NIH Enrollment Report
+
+    Version 1: 2024-04-15
 
     Generates tables with demographic information required for NIH Enrollment reports for the PROMOTE project
 
@@ -126,7 +140,9 @@
 
     Output: A table with demographic information for all PROMOTE participants, and a table with demographic information for all PROMOTE MS participants
 
-16. Pain Query
+23. Pain Query
+
+    Version 1: 2024-04-15
 
     This code finds preliminary PES info- # completed, # unique prts. Also finds info for associated measures: social support, anxiety, depression, fatigue
 
