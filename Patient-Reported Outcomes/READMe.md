@@ -140,7 +140,7 @@
 
     Output: A table with demographic information for all PROMOTE participants, and a table with demographic information for all PROMOTE MS participants
 
-23. Pain Query
+23. Pain Query (Pain Effects Scale, PES)
 
     Version 1: 2024-04-15
 
