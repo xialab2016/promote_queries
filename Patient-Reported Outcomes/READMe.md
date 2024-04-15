@@ -149,3 +149,13 @@
    Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers, Covid Longitudinal, Covid Vaccine, Sensor, PrePro
 
    Output: CSV file with all PES scores for PROMOTE participants, completion table to generate list of unique participants with at least one PES score
+
+24. Perceived Deficits Questionnaire (PDQ)
+
+    Version 1: 2024-04-15
+
+    Scores all PDQ responses for the PROMOTE project
+
+    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
+
+    Output: CSV file with all PDQ responses and total scores, histogram of PDQ total scores, histogram of earliest PDQ response
