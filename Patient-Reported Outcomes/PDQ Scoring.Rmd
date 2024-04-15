@@ -1,0 +1,140 @@
+---
+title: "PDQ Scoring"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+library(ggplot2)
+
+# This code finds all pdq scores for all PROMOTE participants
+  #PDQ5: Longitudinal SRO & Update, Legacy SRO
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+#setwd("your_working_directory")
+
+longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+
+```
+
+#Legacy
+```{r}
+#SRO
+pdqLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "pdq5_1_organized", "pdq5_2_concentrating", "pdq5_3_date", "pdq5_4_conversation", "pdq5_5_blankmind")]
+colnames(pdqLeg) <- c("id_participant", "pdq_date", "pdq_1_organized", "pdq_2_concentrating", "pdq_3_date", "pdq_4_conversation", "pdq_5_blankmind")
+
+```
+
+#Longitudinal
+```{r}
+#SRO & Update
+pdqLong <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "pdq5_1_organized", "pdq5_2_concentrating", "pdq5_3_date", "pdq5_4_conversation", "pdq5_5_blankmind",
+                            "update_questionnaire_timestamp", "pdq5_1_organized_b747e2", "pdq5_2_concentrating_3f2457", "pdq5_3_date_f5793d", "pdq5_4_conversation_7e12b5", "pdq5_5_blankmind_029399")]
+
+pdqLongDate <- pdqLong %>% gather(dateNumber, pdq_date, 2,8)
+pdqLongScore1 <- pdqLong %>% gather(scoreNumber1, pdq_1_organized, 3,9)
+pdqLongScore2 <- pdqLong %>% gather(scoreNumber2, pdq_2_concentrating, 4,10)
+pdqLongScore3 <- pdqLong %>% gather(scoreNumber3, pdq_3_date, 5,11)
+pdqLongScore4 <- pdqLong %>% gather(scoreNumber4, pdq_4_conversation, 6,12)
+pdqLongScore5 <- pdqLong %>% gather(scoreNumber5, pdq_5_blankmind, 7,13)
+
+pdqLong <- cbind(pdqLongDate, pdqLongScore1, pdqLongScore2, pdqLongScore3, pdqLongScore4, pdqLongScore5)
+pdqLong <- pdqLong[,c("id_participant_l", "pdq_date", "pdq_1_organized", "pdq_2_concentrating", "pdq_3_date", "pdq_4_conversation", "pdq_5_blankmind")]
+names(pdqLong)[1] <- 'id_participant'
+
+```
+
+#Combine and score
+```{r}
+#Combine
+pdq_All <- rbind(pdqLeg, pdqLong)
+
+#add all items
+pdq_All$pdq_total <- rowSums(pdq_All[,c(3:7)])
+pdq_All <- pdq_All %>% filter(!is.na(pdq_total))
+
+#export
+write.csv(pdq_All, "pdq.csv")
+
+```
+
+#Basic stats
+```{r}
+#2383 scores
+mean(pdq_All$pdq_total)  #mean of all scores is 6.8
+sd(pdq_All$pdq_total)  #sd is 4.8
+range(pdq_All$pdq_total)  #range is 0-20
+median(pdq_All$pdq_total)  #median is 6
+
+sum(table(unique(pdq_All$id_participant)))  #1196 participants w/ at least 1 score
+
+test <- data.frame(table(pdq_All$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 2 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #603 participants with 1 score
+  #264 participants with 2 scores
+  #144 participants with 3 scores
+
+#finds info for the first score per participant
+pdq_All$pdq_date <- as.Date(pdq_All$pdq_date)
+first <- pdq_All %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(pdq_date, default = first(pdq_date), order_by = pdq_date) - pdq_date)
+first <- first %>% filter(diff==0)
+  #first scores for 1074 participants
+mean(first$pdq_total)  #mean is 6.9
+sd(first$pdq_total)  #sd is 4.8
+range(first$pdq_total)  #range is 0-20
+median(first$pdq_total)  #median is 6
+
+```
+
+#Visualization
+```{r}
+hist(pdq_All$pdq_total)
+
+pdq_All$pdq_date  <- as.Date(pdq_All$pdq_date)
+pdq_earliest = aggregate(pdq_All$pdq_date,by=list(pdq_All$id_participant),min)
+names(pdq_earliest)[1] <- 'id_participant'
+names(pdq_earliest)[2] <- 'pdq_date'
+pdq_earliest <- merge(pdq_earliest, pdq_All, by.x=c("id_participant", "pdq_date"), by.y=c("id_participant", "pdq_date"), all.x = TRUE)
+
+ggplot(pdq_earliest, aes(pdq_total)) +
+    geom_histogram(colour="#14937a", fill="#17a78a", bins = 21) +
+    theme_linedraw() +
+    geom_vline(aes(xintercept=mean(pdq_total)), color="#E74C3C", linetype="dashed", size=.5) +
+    scale_x_continuous(breaks = seq(0, 20, by=4)) +
+    scale_y_continuous(breaks = seq(0, 120, by=20)) +
+    theme(plot.title = element_text(hjust = 0.5)) + xlab("PDQ Score") + ylab("Number of Participants") + 
+  theme(axis.title.x = element_text(margin = margin(t = 15)), axis.title.y = element_text(margin = margin(r=15)))
+
+```
+
