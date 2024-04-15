@@ -101,3 +101,11 @@
     Input: Legacy PQ/SRO, Missing Identifiers
 
     Output: None (is just a chunk of code that can be copied into new queries using Legacy PQ/SRO)
+
+13. Multiple Sclerosis Severity Score (MSSS)
+
+    Scores and transforms all MSSS scores (per MSQIL guide) for the PROMOTE project
+
+    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers, Covid Longitudinal
+
+    Output: CSV file of all MSSS scores for PROMOTE participants, histogram of all total MSSS scores, histogram of all transformed MSSS scores
