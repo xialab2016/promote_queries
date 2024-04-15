@@ -109,3 +109,11 @@
     Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers, Covid Longitudinal
 
     Output: CSV file of all MSSS scores for PROMOTE participants, histogram of all total MSSS scores, histogram of all transformed MSSS scores
+
+14. NEO Five Factor Inventory (NEOFFI)
+
+    Scores all NEOFFI questionnaires for the PROMOTE project
+
+    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, PROMOTE Database
+
+    Output: CSV file of all NEOFFI scores for PROMOTE participants, histogram of each factor (and histogram of the t-score for each factor)
