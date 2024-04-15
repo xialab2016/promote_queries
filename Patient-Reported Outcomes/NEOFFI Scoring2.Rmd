@@ -27,7 +27,11 @@ library(tibble)
 
 #Input Files
 ```{r}
-longitudinal <- read.csv("/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Input Files/PROMOTELongitudinal.csv") #Combined longitudinal projects
+setwd("your_working_directory")
+
+longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
 longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
 
 database <- read.csv("/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Input Files/PROMOTEDatabase.csv") #Export of the whole database project
