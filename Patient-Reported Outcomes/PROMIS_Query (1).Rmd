@@ -1,0 +1,399 @@
+---
+title: "PROMIS Query"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(tidyr)
+
+#Contains code to find all PROMIS values for all PROMOTE participants
+  #Includes some visualizations and PROMIS Physical median values per year per participant
+
+#Files used: PROMOTEDatabase, PROMOTE Longitudinal, Legacy, Missing IDs, Legacy SNQ, sensor, covid, vaccine, pre/pro
+
+#CHANGE FILE PATHS
+
+```
+
+#Import files
+```{r}
+#setwd("your_working_directory")
+
+database <- read.csv("database.csv") #Export of the whole database project
+database <- database %>% filter(str_detect(id_participant, "PRT"))
+database <- database %>% filter(!str_detect(id_participant, "_x"))
+
+long1 <- read.csv("long1.csv")
+long2 <- read.csv("long2.csv")
+longitudinal <- rbind(long1, long2) #Combined longitudinal projects
+  #all measures
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+  #no measures
+
+snq <- read.csv("Legacy_SNQ.csv") #Export of the whole PNQ Legacy project
+  #physical only
+
+sensor <- read.csv("Sensor.csv") #Export of the whole sensor project
+  #never deployed promis measures
+
+covid <- read.csv("covid_long.csv") #Export of the whole original covid project
+  #physical and depression only
+
+vaccine <- read.csv("COVID_Vaccine.csv") #Export of the while covid vaccine project
+  #all measures
+
+prepro <- read.csv("PrePro.csv") #Export of the whole pre/probiotic project
+  #no measures
+
+pasc <- read.csv("PASC.csv") #Export of the whole pasc project
+pasc <- pasc %>% filter(str_detect(id_participant, "PRT"))
+  #all measures
+
+```
+
+
+#Physical
+##Long1&2
+```{r}
+#longitudinal1 & 2
+physLong <- longitudinal[,c("id_participant_l", "promis_bank_v12_physical_function_timestamp", "promis_tscore", "promis_std_error")]
+physLong <- physLong %>% filter(!is.na(promis_tscore))
+names(physLong)[1] <- 'id_participant'
+names(physLong)[2] <- 'timestamp'
+names(physLong)[3] <- 'tscore'
+names(physLong)[4] <- 'std_error'
+
+```
+
+##Social network legacy
+```{r}
+#legacy SNQ
+physSNQ <- snq[,c("redcap_survey_identifier", "promis_bank_v12_physical_function_timestamp", "promis_tscore", "promis_std_error")]
+physSNQ <- physSNQ %>% filter(!is.na(promis_tscore))
+physSNQ <- physSNQ %>% filter(str_detect(redcap_survey_identifier, "PRT"))
+names(physSNQ)[1] <- 'id_participant'
+names(physSNQ)[2] <- 'timestamp'
+names(physSNQ)[3] <- 'tscore'
+names(physSNQ)[4] <- 'std_error'
+
+```
+
+##COVID
+```{r}
+#COVID long
+physCovid <- covid[,c("id_participant_l", "promis_bank_v12_physical_function_160f_timestamp", "promis_bank_v12_physical_function_160f_tscore", "promis_bank_v12_physical_function_160f_std_error")]
+physCovid <- physCovid %>% filter(!is.na(promis_bank_v12_physical_function_160f_tscore))
+names(physCovid)[1] <- 'id_participant'
+names(physCovid)[2] <- 'timestamp'
+names(physCovid)[3] <- 'tscore'
+names(physCovid)[4] <- 'std_error'
+
+```
+
+##COVID vaccine
+```{r}
+#COVID vaccine
+physVacc <- vaccine[,c("id_participant_l", "promis_bank_v12_physical_function_timestamp", "promis_bank_v12_physical_function_tscore", "promis_bank_v12_physical_function_std_error")]
+physVacc <- physVacc %>% filter(!is.na(promis_bank_v12_physical_function_tscore))
+names(physVacc)[1] <- 'id_participant'
+names(physVacc)[2] <- 'timestamp'
+names(physVacc)[3] <- 'tscore'
+names(physVacc)[4] <- 'std_error'
+
+```
+
+##PASC
+```{r}
+#PASC
+physPASC <- pasc[,c("id_participant", "promis_bank_v12_physical_function_timestamp", "promis_bank_v12_physical_function_tscore", "promis_bank_v12_physical_function_std_error")]
+physPASC <- physPASC %>% filter(!is.na(promis_bank_v12_physical_function_tscore))
+names(physPASC)[1] <- 'id_participant'
+names(physPASC)[2] <- 'timestamp'
+names(physPASC)[3] <- 'tscore'
+names(physPASC)[4] <- 'std_error'
+
+```
+
+##Combine all Physical
+```{r}
+physical_all <- rbind(physLong, physSNQ, physCovid, physVacc, physPASC)
+physical_all <- physical_all %>% filter(str_detect(id_participant, "PRT"))
+physical_all$timestamp <- format(as.POSIXct(physical_all$timestamp, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+#4844 total scores
+  #filter out bad dates- greater than today
+physical_all <- physical_all %>% filter(!timestamp>Sys.Date())
+
+
+test <- data.frame(table(physical_all$id_participant))
+test <- test %>% filter(Freq>0)
+  #1014 participants with scores
+mean(test$Freq)
+  #mean 4.98 scores per person
+
+write.csv(physical_all, "promis_physical_all.csv")
+
+```
+
+##Visualize
+```{r}
+mean(physical_all$tscore)
+sd(physical_all$tscore)
+
+mean(physical_all$std_error)
+sd(physical_all$std_error)
+
+physical_all$timestamp  <- as.Date(physical_all$timestamp)
+physical_earliest = aggregate(physical_all$timestamp,by=list(physical_all$id_participant),min)
+names(physical_earliest)[1] <- 'id_participant'
+names(physical_earliest)[2] <- 'timestamp'
+physical_earliest <- merge(physical_earliest, physical_all, by.x=c("id_participant", "timestamp"), by.y=c("id_participant", "timestamp"), all.x = TRUE)
+
+#Visualize
+ggplot(physical_earliest, aes(tscore)) +
+    geom_histogram(colour="#3C4663", fill="#6D748C") +
+    theme_linedraw() +
+    geom_vline(aes(xintercept=mean(tscore)), color="#E74C3C", linetype="dashed", size=.5) +
+    geom_vline(xintercept = 50, color = "black", size=.5) + 
+    scale_y_continuous(breaks = seq(0, 100, by=15)) +
+    scale_x_continuous(breaks = seq(0, 100, by=5)) +
+    theme(plot.title = element_text(hjust = 0.5)) + xlab("PROMIS Physical Function T-score") + ylab("Number of Participants") + 
+  theme(axis.title.x = element_text(margin = margin(t = 15)), axis.title.y = element_text(margin = margin(r=15)))
+
+```
+
+#Find physical medians
+```{r}
+total_network <- physical_all
+total_network$year <- year(total_network$timestamp)
+promis_summary <- total_network %>%
+  mutate_at(vars(-id_participant), as.numeric) %>%
+  group_by(id_participant, year) %>%
+  dplyr::summarise(promis_t_score = max(tscore),
+            promis_se = ifelse(promis_t_score == max(tscore), std_error),
+            promis_num_observations = n()
+  ) %>% ungroup()
+#total_network has a list of all of the scores, longitudinally
+
+promis_final_tscore <- total_network %>%
+  mutate_at(vars(-id_participant), as.numeric) %>%
+   group_by(id_participant, year) %>%
+   dplyr::summarise(promis_tscore_median = median(tscore),
+            promis_num_observations = n()) %>% ungroup()
+promis_final_stderr <- total_network %>%
+  mutate_at(vars(-id_participant), as.numeric) %>%
+   group_by(id_participant, year) %>%
+   dplyr::summarise(promis_stderr_median = median(std_error),
+            promis_num_observations = n()) %>% ungroup()
+
+promis_new_summary <- cbind(promis_final_tscore, promis_final_stderr)
+promis_new_summary <- promis_new_summary[,c("id_participant", "year", "promis_tscore_median", "promis_stderr_median", "promis_num_observations")]
+
+promis_new_summary <- promis_new_summary %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(promis_tscore_median, default = first(promis_tscore_median), order_by = year) - promis_tscore_median)
+promis_new_summary <- as.data.frame(promis_new_summary)
+
+
+#export list of all median scores per year
+promis_all_median <- promis_new_summary
+write.csv(promis_all_median, "physical_all_median.csv")
+
+
+```
+
+#Cognitive
+##Long1&2
+```{r}
+#longitudinal1 & 2
+cogLong <- longitudinal[,c("id_participant_l", "promis_bank_v20_cognitive_function_timestamp", "promis_bank_v20_cognitive_function_tscore", "promis_bank_v20_cognitive_function_std_error")]
+cogLong <- cogLong %>% filter(!is.na(promis_bank_v20_cognitive_function_tscore))
+names(cogLong)[1] <- 'id_participant'
+names(cogLong)[2] <- 'timestamp'
+names(cogLong)[3] <- 'tscore'
+names(cogLong)[4] <- 'std_error'
+
+```
+
+##COVID vaccine
+```{r}
+#COVID vaccine
+cogVacc <- vaccine[,c("id_participant_l", "promis_bank_v20_cognitive_function_timestamp", "promis_bank_v20_cognitive_function_tscore", "promis_bank_v20_cognitive_function_std_error")]
+cogVacc <- cogVacc %>% filter(!is.na(promis_bank_v20_cognitive_function_tscore))
+names(cogVacc)[1] <- 'id_participant'
+names(cogVacc)[2] <- 'timestamp'
+names(cogVacc)[3] <- 'tscore'
+names(cogVacc)[4] <- 'std_error'
+```
+
+##PASC
+```{r}
+#PASC
+cogPASC <- pasc[,c("id_participant", "promis_bank_v20_cognitive_function_timestamp", "promis_bank_v20_cognitive_function_tscore", "promis_bank_v20_cognitive_function_std_error")]
+cogPASC <- cogPASC %>% filter(!is.na(promis_bank_v20_cognitive_function_tscore))
+names(cogPASC)[1] <- 'id_participant'
+names(cogPASC)[2] <- 'timestamp'
+names(cogPASC)[3] <- 'tscore'
+names(cogPASC)[4] <- 'std_error'
+
+```
+
+##Combine all Cognitive
+```{r}
+cognitive_all <- rbind(cogLong, cogVacc, cogPASC)
+cognitive_all <- cognitive_all %>% filter(str_detect(id_participant, "PRT"))
+cognitive_all$timestamp <- format(as.POSIXct(cognitive_all$timestamp, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+#2732 total scores
+  #filter out bad dates- greater than today
+cognitive_all <- cognitive_all %>% filter(!timestamp>Sys.Date())
+
+test <- data.frame(table(cognitive_all$id_participant))
+test <- test %>% filter(Freq>0)
+  #803 participants with scores
+mean(test$Freq)
+  #mean 3.40 scores per person
+
+write.csv(cognitive_all, "promis_cognitive_all.csv")
+
+```
+
+##Visualize
+```{r}
+mean(cognitive_all$tscore)
+sd(cognitive_all$tscore)
+
+mean(cognitive_all$std_error)
+sd(cognitive_all$std_error)
+
+cognitive_all$timestamp  <- as.Date(cognitive_all$timestamp)
+cognitive_earliest = aggregate(cognitive_all$timestamp,by=list(cognitive_all$id_participant),min)
+names(cognitive_earliest)[1] <- 'id_participant'
+names(cognitive_earliest)[2] <- 'timestamp'
+cognitive_earliest <- merge(cognitive_earliest, cognitive_all, by.x=c("id_participant", "timestamp"), by.y=c("id_participant", "timestamp"), all.x = TRUE)
+
+
+#Visualize
+ggplot(cognitive_earliest, aes(tscore)) +
+    geom_histogram(colour="#0E6655", fill="#117A65") +
+    theme_linedraw() +
+    geom_vline(aes(xintercept=mean(tscore)), color="#E74C3C", linetype="dashed", size=.5) +
+    geom_vline(xintercept = 50, color = "black", size=.5) + 
+    scale_y_continuous(breaks = seq(0, 70, by=10)) +
+    scale_x_continuous(breaks = seq(0, 100, by=5)) +
+    theme(plot.title = element_text(hjust = 0.5)) + xlab("PROMIS Cognition T-Score") + ylab("Number of Participants") + 
+  theme(axis.title.x = element_text(margin = margin(t = 15)), axis.title.y = element_text(margin = margin(r=15)))
+
+```
+
+#Depression
+##Long1&2
+```{r}
+#longitudinal1 & 2
+depLong <- longitudinal[,c("id_participant_l", "promis_bank_v10_depression_timestamp", "promis_bank_v10_depression_tscore", "promis_bank_v10_depression_std_error")]
+depLong <- depLong %>% filter(!is.na(promis_bank_v10_depression_tscore))
+names(depLong)[1] <- 'id_participant'
+names(depLong)[2] <- 'timestamp'
+names(depLong)[3] <- 'tscore'
+names(depLong)[4] <- 'std_error'
+
+```
+
+##COVID
+```{r}
+#COVID long
+depCovid <- covid[,c("id_participant_l", "promis_bank_v10_depression_timestamp", "promis_bank_v10_depression_tscore", "promis_bank_v10_depression_std_error")]
+depCovid <- depCovid %>% filter(!is.na(promis_bank_v10_depression_tscore))
+names(depCovid)[1] <- 'id_participant'
+names(depCovid)[2] <- 'timestamp'
+names(depCovid)[3] <- 'tscore'
+names(depCovid)[4] <- 'std_error'
+
+```
+
+##COVID vaccine
+```{r}
+#COVID vaccine
+depVacc <- vaccine[,c("id_participant_l", "promis_bank_v10_depression_timestamp", "promis_bank_v10_depression_tscore", "promis_bank_v10_depression_std_error")]
+depVacc <- depVacc %>% filter(!is.na(promis_bank_v10_depression_tscore))
+names(depVacc)[1] <- 'id_participant'
+names(depVacc)[2] <- 'timestamp'
+names(depVacc)[3] <- 'tscore'
+names(depVacc)[4] <- 'std_error'
+```
+
+##PASC
+```{r}
+#PASC
+depPASC <- pasc[,c("id_participant", "promis_bank_v10_depression_timestamp", "promis_bank_v10_depression_tscore", "promis_bank_v10_depression_std_error")]
+depPASC <- depPASC %>% filter(!is.na(promis_bank_v10_depression_tscore))
+names(depPASC)[1] <- 'id_participant'
+names(depPASC)[2] <- 'timestamp'
+names(depPASC)[3] <- 'tscore'
+names(depPASC)[4] <- 'std_error'
+
+```
+
+##Combine all Depression
+```{r}
+depression_all <- rbind(depLong, depVacc, depPASC)
+depression_all <- depression_all %>% filter(str_detect(id_participant, "PRT"))
+depression_all$timestamp <- format(as.POSIXct(depression_all$timestamp, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+#2605 total scores
+  #filter out bad dates- greater than today
+depression_all <- depression_all %>% filter((!timestamp>Sys.Date()) | is.na(timestamp))
+
+test <- data.frame(table(depression_all$id_participant))
+test <- test %>% filter(Freq>0)
+  #880 participants with scores
+mean(test$Freq)
+  #mean 3.59 scores per person
+
+write.csv(depression_all, "promis_depression_all.csv")
+
+
+```
+
+##Visualize
+```{r}
+mean(depression_all$tscore)
+sd(depression_all$tscore)
+
+mean(depression_all$std_error)
+sd(depression_all$std_error)
+
+depression_all$timestamp  <- as.Date(depression_all$timestamp)
+depression_earliest = aggregate(depression_all$timestamp,by=list(depression_all$id_participant),min)
+names(depression_earliest)[1] <- 'id_participant'
+names(depression_earliest)[2] <- 'timestamp'
+depression_earliest <- merge(depression_earliest, depression_all, by.x=c("id_participant", "timestamp"), by.y=c("id_participant", "timestamp"), all.x = TRUE)
+
+
+#Visualize
+ggplot(depression_earliest, aes(tscore)) +
+    geom_histogram(colour="#CA6F1E", fill="#E67E22") +
+    theme_linedraw() +
+    geom_vline(aes(xintercept=mean(tscore)), color="#E74C3C", linetype="dashed", size=.5) +
+    geom_vline(xintercept = 50, color = "black", size=.5) + 
+    scale_y_continuous(breaks = seq(0, 100, by=15)) +
+    scale_x_continuous(breaks = seq(0, 100, by=5)) +
+    theme(plot.title = element_text(hjust = 0.5)) + xlab("PROMIS Depression T-Score") + ylab("Number of Participants") + 
+  theme(axis.title.x = element_text(margin = margin(t = 15)), axis.title.y = element_text(margin = margin(r=15)))
+
+```
+
+
+
