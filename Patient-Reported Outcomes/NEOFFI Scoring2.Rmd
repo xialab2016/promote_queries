@@ -1,0 +1,195 @@
+---
+title: "NEOFFI Scoring"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r} 
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+library(eeptools)
+library(tibble)
+
+#Scores the NEOFFI questionnaire for all PROMOTE participants
+  #Files: PROMOTELongitudinal, PROMOTEDatabase
+
+#CHANGE FILE PATHS
+
+```
+
+#Input Files
+```{r}
+longitudinal <- read.csv("/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Input Files/PROMOTELongitudinal.csv") #Combined longitudinal projects
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+database <- read.csv("/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Input Files/PROMOTEDatabase.csv") #Export of the whole database project
+database <- database %>% filter(str_detect(id_participant, "PRT"))
+database <- database %>% filter(str_detect(redcap_event_name, "consent_initial"))
+database <- database %>% filter(!str_detect(id_participant, "_x"))
+
+```
+
+#Longitudinal
+```{r}
+#Rename columns to indicate question number
+  #("not a worrier" through "excellence", total of 62 columns including ID and date)
+#!!!!!!!!!!!!!!!!!!!!!CHECK COLUMN NUMBERS!!!!!!!!!!!!!!!!!!!!!!!!!!
+neoffi <- longitudinal[,c(2, 3098:3158)]
+
+#shift all responses down 1 for scales of 0-4 instead of 1-5
+neoffi[3:62] <- neoffi[3:62] - 1
+
+#rename columns for easy calculation of the subscores
+colnames(neoffi) <- c("id_participant", "neoffi_date", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15", "q16", "q17", "q18", "q19", "q20", "q21", "q22", "q23", "q24", "q25", "q26", "q27", "q28", "q29", "q30", "q31", "q32", "q33", "q34", "q35", "q36", "q37", "q38", "q39", "q40", "q41", "q42", "q43", "q44", "q45", "q46", "q47", "q48", "q49", "q50", "q51", "q52", "q53", "q54", "q55", "q56", "q57", "q58", "q59", "q60")
+
+```
+
+#Subscores
+```{r}
+#Find sub category scores-- two questions are missing in the subcategories, so this shouldn't get used as a reliable measure
+
+  #Neuroticism
+neoffi$neg_affect <- (neoffi$q1 + neoffi$q11 + neoffi$q16 + neoffi$q31 + neoffi$q46)
+neoffi$self_rep <- (neoffi$q6 + neoffi$q21 + neoffi$q26 + neoffi$q36 + neoffi$q41 + neoffi$q51 + neoffi$q56)
+
+  #Extraversion
+neoffi$pos_affect <- (neoffi$q7  + neoffi$q12 + neoffi$q37 + neoffi$q42)
+neoffi$sociability <- (neoffi$q2 + neoffi$q17 + neoffi$q27 + neoffi$q57)
+neoffi$activity <- (neoffi$q22 + neoffi$q32 + neoffi$q47 + neoffi$q52)
+
+  #Openness
+neoffi$aesthetic <- (neoffi$q13 + neoffi$q23 + neoffi$q43)
+neoffi$intellectual <- (neoffi$q48 + neoffi$q53 + neoffi$q58 + neoffi$q33)
+neoffi$unconvent <- (neoffi$q3 + neoffi$q8 + neoffi$q18 + neoffi$q38 + neoffi$q28)
+  #missing q33 (intellectual?) and q28 (unconventional?) from this total
+
+  #Agreableness
+neoffi$nonantag <- (neoffi$q9 + neoffi$q14 + neoffi$q19 + neoffi$q24 + neoffi$q29 + neoffi$q44 + neoffi$q54 + neoffi$q59)
+neoffi$prosocial <- (neoffi$q4 + neoffi$q34 + neoffi$q39 + neoffi$q49)
+
+  #Conscientiousness
+neoffi$orderly <- (neoffi$q5 + neoffi$q10 + neoffi$q15 + neoffi$q30 + neoffi$q55)
+neoffi$goal_striving <- (neoffi$q25 + neoffi$q35 + neoffi$q60)
+neoffi$dependable <- (neoffi$q20 + neoffi$q40 + neoffi$q45 + neoffi$q50)
+
+#Find sub category scores
+neoffi$neuroticism <- (neoffi$neg_affect + neoffi$self_rep)
+neoffi$extraversion <- (neoffi$pos_affect + neoffi$sociability + neoffi$activity)
+neoffi$openness <- (neoffi$aesthetic + neoffi$intellectual + neoffi$unconvent)
+neoffi$agreableness <- (neoffi$nonantag + neoffi$prosocial)
+neoffi$conscientiousness <- (neoffi$orderly + neoffi$goal_striving + neoffi$dependable)
+
+neoffi2 <- neoffi[,c("id_participant", "neoffi_date", "neuroticism", "extraversion", "openness", "agreableness", "conscientiousness")]
+
+```
+
+#Find T Scores
+```{r}
+#matches score with the correct tscore based on sex
+#scores that are below the expected range and do not have a tscore are marked with "under"
+#scores that are above the expected range and do not have a tscore are marked with "over"
+
+#combine with sex
+demogs <- database[,c("id_participant", "subject_sex")]
+neoffi2 <- merge(neoffi2, demogs, by = "id_participant")
+
+#Separate by sex
+  #Male
+neoffi_male <- neoffi2 %>% filter(subject_sex == 1)
+  #Female
+neoffi_female <- neoffi2 %>% filter(subject_sex == 2)
+
+
+#Find T Scores for MALES
+  #scores 2-39, scale 0-36
+neoffi_male$neuroticism_tscore <- factor(neoffi_male$neuroticism, levels = c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36, 37,38,39), labels = c(26,28,29,30,32,33,34,36,37,38,40,41,42,44,45,47,48,49,51,52,53,55,56,57,59,60,61,63,64,65,67,68,69,71,72,73,75, "over","over","over"))
+
+  #scores 13-43, scale 12-42
+neoffi_male$extraversion_tscore <- factor(neoffi_male$extraversion, levels = c(0,1,2,3,4,5,6,7,8,9,10,11, 12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43), labels = c("under","under","under","under","under","under","under","under","under","under","under","under", 25,26,27,29,31,33,34,36,38,39,41,43,44,46,48,50,51,53,55,56,58,60,62,63,65,67,68,70,72,74,75,"over"))
+
+  #scores 12-47, scale 12-42
+neoffi_male$openness_tscore <- factor(neoffi_male$openness, levels = c(1,2,3,4,5,6,7,8,9,10,11, 12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42, 43,44,45,46,47), labels = c("under","under","under","under","under","under","under","under","under","under","under",25,26,28,29,31,33,34,36,38,40,41,43,45,46,48,50,52,53,55,57,58,60,62,64,65,67,69,70,72,74,75, "over","over","over","over","over"))
+
+  #scores 18-44, scale 19-45
+neoffi_male$agreableness_tscore <- factor(neoffi_male$agreableness, levels = c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18, 19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45), labels = c("under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under",25,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,66,68,70,72,74,75))
+
+  #scores 9-46, scale 19-48
+neoffi_male$conscientiousness_tscore <- factor(neoffi_male$conscientiousness, levels = c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18, 19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48), labels = c("under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under",25,26,28,30,31,33,35,36,38,40,41,43,45,46,48,50,52,53,55,57,58,60,62,63,65,67,68,70,72,73))
+
+
+#Find T Scores for FEMALES
+  #scores 0-48, scale 1-40
+neoffi_female$neuroticism_tscore <- factor(neoffi_female$neuroticism, levels = c(0, 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40, 41,42,43,44,45,46,47,48), labels = c("under",25,26,27,28,30,31,32,34,35,36,37,39,40,41,43,44,45,47,48,49,51,52,53,55,56,57,58,60,61,62,64,65,66,68,69,70,72,73,74,75, "over","over","over","over","over","over","over", "over"))
+
+  #scores 7-42, scale 13-43
+neoffi_female$extraversion_tscore <- factor(neoffi_female$extraversion, levels = c(0,1,2,3,4,5,6,7,8,9,10,11,12, 13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43), labels = c("under","under","under","under","under","under","under","under","under","under","under","under","under",25,26,27,29,31,33,34,36,38,39,41,43,45,46,48,50,51,53,55,57,58,60,62,63,65,67,69,70,72,74,75))
+
+  #scores 7-45, scale 12-42
+neoffi_female$openness_tscore <- factor(neoffi_female$openness, levels = c(0,1,2,3,4,5,6,7,8,9,10,11, 12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45), labels = c("under","under","under","under","under","under","under","under","under","under","under","under",25,26,28,30,31,33,35,36,38,40,42,43,45,47,48,50,52,53,55,57,59,60,62,64,65,67,69,70,72,74,75,"over","over","over"))
+
+  #scores 12-46, scale 22-46
+neoffi_female$agreableness_tscore <- factor(neoffi_female$agreableness, levels = c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21, 22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46), labels = c("under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under",25,27,29,32,34,36,38,40,42,44,46,48,51,53,55,57,59,61,63,65,67,69,72,74,75))
+
+  #scores 13-48, 20-48
+neoffi_female$conscientiousness_tscore <- factor(neoffi_female$conscientiousness, levels = c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,
+20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48), labels = c("under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under","under",25,26,27,29,31,33,34,36,38,40,41,43,45,46,48,50,52,53,55,57,59,60,62,64,66,67,69,71,72))
+
+
+```
+
+#Merge and clean
+```{r}
+#combine male and female charts now that they have been correctly assigned their tscores
+neoffi3 <- rbind(neoffi_male, neoffi_female)
+neoffi3 <- neoffi3[,c("id_participant", "subject_sex", "neoffi_date", "neuroticism", "neuroticism_tscore", "extraversion", "extraversion_tscore", "openness", "openness_tscore", "agreableness", "agreableness_tscore", "conscientiousness", "conscientiousness_tscore")]
+
+#filter out responses with NAs in all categories
+  #for this query, leave people with under/over scores in
+neoffi4 <- neoffi3 %>% filter( (!is.na(neuroticism)) & (!is.na(extraversion)) & (!is.na(openness)) & (!is.na(agreableness)) & (!is.na(conscientiousness))) 
+
+#export
+write.csv(neoffi4, "/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Data Desc Queries/Survey Scoring/neoffi_all.csv")
+#392 responses
+
+```
+
+#Visualization
+```{r}
+hist(neoffi4$neuroticism)
+neoffi4$neuroticism_tscore <- as.numeric(as.character(neoffi4$neuroticism_tscore))
+hist(neoffi4$neuroticism_tscore)
+
+hist(neoffi4$extraversion)
+neoffi4$extraversion_tscore <- as.numeric(as.character(neoffi4$extraversion_tscore))
+hist(neoffi4$extraversion_tscore)
+
+hist(neoffi4$openness)
+neoffi4$openness_tscore <- as.numeric(as.character(neoffi4$openness_tscore))
+hist(neoffi4$openness_tscore)
+
+hist(neoffi4$agreableness)
+#hist(neoffi4$agreableness_tscore) Can't plot because of the unders/overs
+
+hist(neoffi4$conscientiousness)
+neoffi4$conscientiousness_tscore <- as.numeric(as.character(neoffi4$conscientiousness_tscore))
+hist(neoffi4$conscientiousness_tscore)
+
+
+```
+
+
+
+
+
+
+
+
+
