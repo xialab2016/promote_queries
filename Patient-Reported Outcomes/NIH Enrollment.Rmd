@@ -1,0 +1,59 @@
+---
+title: "NIH Enrollment"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(dplyr)
+library(knitr)
+
+# This code finds the race and ethnicity breakdowns for the NIH Enrollment report
+# Files needed: Database
+
+#CHAGNE FILE PATH
+
+```
+
+#Table
+```{r}
+setwd("your_working_directory")
+
+#Load data
+database <- read.csv("Database.csv") #Export of the whole database project
+promote <- database %>% filter(str_detect(id_participant, 'PRT'))
+promote <- promote %>% filter(str_detect(redcap_event_name, 'consent_initial_vi_arm'))
+
+#Relabel variables
+promote$subject_sex <- factor(promote$subject_sex, levels=c(1,2,3), labels=c("Male","Female", "Unknown/Not Reported"))
+promote$race <- factor(promote$race, levels=c(1,2,3,4,5,6, 99), labels=c("Black or African American", "American Indian or Alaska Native", "Asian", "White", "More Than One Race", "Native Hawaiian or Other Pacific Islander", "Unknown/Not Reported"))
+promote$ethnicity <- factor(promote$ethnicity, levels=c(1,2,99), labels=c("Hispanic or Latino","Non-Hispanic or Latino","Unknown/Not Reported"))
+
+promote$subject_sex <- replace_na(promote$subject_sex, "Unknown/Not Reported")
+promote$race <- replace_na(promote$race, "Unknown/Not Reported")
+promote$ethnicity <- replace_na(promote$ethnicity, "Unknown/Not Reported")
+
+#Make Table- ALL PARTICIPANTS
+label(promote$race) <- "Racial Group"
+label(promote$ethnicity) <- "Ethnicic Group"
+label(promote$subject_sex) <- "Sex"
+table1(~ race | ethnicity*subject_sex, data=promote, overall="Total", topclass="Rtable1-grid", droplevels=FALSE)
+
+#Make Table- MS PATIENTS ONLY
+promote2 <- promote %>% filter(subject_group==1)
+table1(~ race | ethnicity*subject_sex, data=promote2, overall="Total", topclass="Rtable1-grid", droplevels=FALSE)
+
+
+```
+
+
