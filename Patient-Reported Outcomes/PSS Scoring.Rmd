@@ -1,0 +1,104 @@
+---
+title: "SSS Scoring"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+
+# This code finds all pss scores for all PROMOTE participants
+  #PSS: Sensor monthly
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+setwd("your_working_directory")
+
+sensor <- read.csv("Sensor.csv") #Export of the whole sensor project
+sensor <- sensor %>% filter((!str_detect(record_id, "_0")) & (str_detect(record_id, "PRT")))
+
+```
+
+#Sensor
+```{r}
+#monthly
+pss_All <- sensor[,c("record_id", "monthlyq_timestamp", "pss_m1", "pss_m2", "pss_m3", "pss_m4", "pss_m5", "pss_m6", "pss_m7", "pss_m8", "pss_m9", "pss_m10")]
+
+```
+
+#Score
+```{r}
+#reverse 4,5,7,8 (0 = 4, 1 = 3, 2 = 2, 3 = 1, 4 = 0)
+pss_All$pss_m4 <- factor(pss_All$pss_m4, levels = c(0,1,2,3,4), labels = c(4,3,2,1,0))
+pss_All$pss_m5 <- factor(pss_All$pss_m5, levels = c(0,1,2,3,4), labels = c(4,3,2,1,0))
+pss_All$pss_m7 <- factor(pss_All$pss_m7, levels = c(0,1,2,3,4), labels = c(4,3,2,1,0))
+pss_All$pss_m8 <- factor(pss_All$pss_m8, levels = c(0,1,2,3,4), labels = c(4,3,2,1,0))
+
+pss_All$pss_m4 <- as.numeric(as.character(pss_All$pss_m4))
+pss_All$pss_m5 <- as.numeric(as.character(pss_All$pss_m5))
+pss_All$pss_m7 <- as.numeric(as.character(pss_All$pss_m7))
+pss_All$pss_m8 <- as.numeric(as.character(pss_All$pss_m8))
+
+#add all items
+pss_All$pss_total <- rowSums(pss_All[,c(3:12)])
+pss_All <- pss_All %>% filter(!is.na(pss_total))
+names(pss_All)[1] <- 'id_participant'
+names(pss_All)[2] <- 'pss_date'
+
+#export
+write.csv(pss_All, "pss.csv")
+
+```
+
+#Basic stats
+```{r}
+#1305 scores
+mean(pss_All$pss_total)  #mean of all scores is 19.4
+sd(pss_All$pss_total)  #sd is 4.2
+range(pss_All$pss_total)  #range is 0-32
+median(pss_All$pss_total)  #median is 20
+
+sum(table(unique(pss_All$id_participant)))  #104 participants w/ at least 1 score
+
+test <- data.frame(table(pss_All$id_participant))
+test <- test %>% filter(Freq>0)
+mean(test$Freq) #average 5.4 scores per participant
+test2 <- data.frame(table(test$Freq))
+  #1 participants with 2 scores
+  #57 participants with 4 scores
+  #32 participants with 8 scores
+
+#finds info for the first score per participant
+pss_All$pss_date <- as.Date(pss_All$pss_date)
+first <- pss_All %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(pss_date, default = first(pss_date), order_by = pss_date) - pss_date)
+first <- first %>% filter(diff==0)
+  #first scores for 104 participants
+mean(first$pss_total)  #mean is 20.4
+sd(first$pss_total)  #sd is 4
+range(first$pss_total)  #range is 9-32
+median(first$pss_total)  #median is 21
+
+```
+
+#Visualization
+```{r}
+hist(pss_All$pss_total)
+
+```
+
+
