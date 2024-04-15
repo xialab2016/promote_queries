@@ -93,3 +93,11 @@
     Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers, Sensor, PrePro
 
     Output: CSV file of all MFIS-21 scores for PROMOTE participants, histogram of all MFIS-21 physical/cognitive/psychosocial/total scores, CSV file of all MFIS-5 scores for PROMOTE participants, histogram of all MFIS-5 total scores
+
+12. Legacy Missing ID Link Code
+
+    Code to link missing promote IDs to the legacy PQ/SRO project
+
+    Input: Legacy PQ/SRO, Missing Identifiers
+
+    Output: None (is just a chunk of code that can be copied into new queries using Legacy PQ/SRO)
