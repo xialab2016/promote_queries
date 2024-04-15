@@ -27,7 +27,9 @@ library(knitr)
 ```{r}
 setwd("your_working_directory")
 
-longitudinal <- read.csv("PROMOTELongitudinal.csv") #Combined longitudinal projects
+longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
 longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
 
 legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
