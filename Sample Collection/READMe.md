@@ -3,7 +3,16 @@
 1. Serum
 2. Plasma
 3. PBMC
-4. DNA
+
+   Version 1: 2024-04-02
+
+   Finds list of participants with PBMC sample and their demographics
+
+   Input: PROMOTEDatabase
+
+   Output: Table of demographic summary for all PROMOTE participants with a PBMC sample, CSV file containing all participants with DNA sample and their demographics
+   
+5. DNA
 
    Version 1: 2024-04-02
 
