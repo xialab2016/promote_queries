@@ -1,0 +1,679 @@
+---
+title: "Pain Query"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(dplyr)
+library(knitr)
+
+# This code finds preliminary PES info- # completed, # unique prts
+  # Also finds info for associated measures: social support, anxiety, depression, fatigue
+# Files needed: Longitudinal, Legacy SRO, covid, vaccine, sensor, prebiotics
+
+###### CHECK SCALES FOR REVERSE ITEMS
+###### DOESN'T INCLUDE SUBSCALE SCORING
+```
+
+#Import Files
+```{r}
+database <- read.csv("database.csv")
+database <- database[-c(1),c("id_participant")]
+database <- as.data.frame(database)
+database <- rename(database, "id_participant"="database")
+database <- unique(database)
+database <- database %>% filter(!str_detect(id_participant, "_x"))
+
+#run combination code
+longitudinal <- read.csv("long.csv")
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv")
+missingID <- read.csv("MissingIdentifiers.csv")
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+covid <- read.csv("covid_long.csv")
+
+vaccine <- read.csv("COVID_Vaccine.csv")
+
+sensor <- read.csv("sensor.csv")
+
+prebiotics <- read.csv("PrePro.csv")
+prebiotics <- prebiotics %>%
+  group_by(id) %>%
+  mutate(promote_id = first(promote_id))
+
+```
+
+
+#Pain Effects Scale
+```{r}
+#Longitudinal SRO
+painSRO <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "pes_1_mood", "pes_2_move", "pes_3_sleep", "pes_4_work", "pes_5_recreational", "pes_6_enjoyment")]
+painSRO <- painSRO %>% filter(str_detect(promote_self_reported_outcomes_timestamp, "20"))
+painSRO$pes_total <- painSRO$pes_1_mood + painSRO$pes_2_move + painSRO$pes_3_sleep + painSRO$pes_4_work + painSRO$pes_5_recreational + painSRO$pes_6_enjoyment
+
+
+#Longitudinal Update
+painUpd <- longitudinal[,c("id_participant_l", "update_questionnaire_timestamp", "pes_1_mood_50f03a", "pes_2_move_6e3885", "pes_3_sleep_ceec80", "pes_4_work_fbc4ef", "pes_5_recreational_f311aa", "pes_6_enjoyment_ec0fa5")]
+painUpd <- painUpd %>% filter(str_detect(update_questionnaire_timestamp, "20"))
+painUpd$pes_total <- painUpd$pes_1_mood_50f03a + painUpd$pes_2_move_6e3885 + painUpd$pes_3_sleep_ceec80 + painUpd$pes_4_work_fbc4ef + painUpd$pes_5_recreational_f311aa + painUpd$pes_6_enjoyment_ec0fa5
+
+
+#Legacy SRO
+painLegSRO <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "pes_1_mood", "pes_2_move", "pes_3_sleep", "pes_4_work", "pes_5_recreational", "pes_6_enjoyment")]
+painLegSRO <- painLegSRO %>% filter(str_detect(promote_self_reported_outcomes_timestamp, "20"))
+painLegSRO$pes_total <- painLegSRO$pes_1_mood + painLegSRO$pes_2_move + painLegSRO$pes_3_sleep + painLegSRO$pes_4_work + painLegSRO$pes_5_recreational + painLegSRO$pes_6_enjoyment
+
+
+```
+
+##Format and bind
+```{r}
+#Long SRO
+painSRO <- rename(painSRO, "id_participant"="id_participant_l")
+painSRO <- rename(painSRO, "timestamp"="promote_self_reported_outcomes_timestamp")
+
+#Long Upd
+painUpd <- rename(painUpd, "id_participant"="id_participant_l")
+painUpd <- rename(painUpd, "timestamp"="update_questionnaire_timestamp")
+painUpd <- rename(painUpd, "pes_1_mood"="pes_1_mood_50f03a")
+painUpd <- rename(painUpd, "pes_2_move"="pes_2_move_6e3885")
+painUpd <- rename(painUpd, "pes_3_sleep"="pes_3_sleep_ceec80")
+painUpd <- rename(painUpd, "pes_4_work"="pes_4_work_fbc4ef")
+painUpd <- rename(painUpd, "pes_5_recreational"="pes_5_recreational_f311aa")
+painUpd <- rename(painUpd, "pes_6_enjoyment"="pes_6_enjoyment_ec0fa5")
+
+#Legacy SRO
+painLegSRO <- rename(painLegSRO, "timestamp"="promote_self_reported_outcomes_timestamp")
+
+#Bind
+PES_All <- rbind(painSRO, painUpd, painLegSRO)
+PES_All <- PES_All %>% filter((!is.na(pes_total)))
+
+#Table of Pain PRTs- 954
+PES_PRTs <- PES_All[,c("id_participant")]
+PES_PRTs <- as.data.frame(PES_PRTs)
+PES_PRTs <- rename(PES_PRTs, "id_participant"="PES_PRTs")
+PES_PRTs <- unique(PES_PRTs)
+
+#Completion table
+PES_Completion <- PES_PRTs
+PES_Completion$PES <- (matrix("1", ncol = 1, nrow = nrow(PES_Completion)))
+
+```
+
+```{r}
+write.csv(PES_All, "pes_all.csv")
+```
+
+
+
+
+
+
+
+
+#for descriptive statistics of the data
+```{r}
+library(lubridate)
+tree <- PES_All %>% 
+  select(id_participant, timestamp)
+tree$date <- word(tree$timestamp)
+tree$date <- gsub(" ", "", tree$date)
+tree$date <- ymd(tree$date)
+tree <- tree %>% 
+  arrange(id_participant, date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n_prt = n_distinct(date)) %>% 
+  ungroup() %>% 
+  filter(n_prt >= 2) %>% 
+  group_by(id_participant) %>% 
+  mutate(min_date = min(date)) %>% 
+  mutate(max_date = max(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, min_date, max_date) %>% 
+  unique() %>% 
+  mutate(time_int = interval(min_date, max_date)) %>% 
+  mutate(first_to_recent = time_length(time_int, "month"))
+mean(tree$first_to_recent)
+sd(tree$first_to_recent)
+```
+
+
+```{r}
+tree <- PES_All %>% 
+  select(id_participant, timestamp)
+tree$date <- word(tree$timestamp)
+tree$date <- gsub(" ", "", tree$date)
+tree$date <- ymd(tree$date)
+tree2 <- tree
+tree2 <- tree2 %>% 
+  arrange(id_participant, date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n_prt = n_distinct(date)) %>% 
+  ungroup()
+tree2
+
+mean(tree2$n_prt)
+sd(tree2$n_prt)
+```
+
+##Stats
+```{r}
+#1821 completed surveys
+
+#954 unique participants (2022)
+#1212 unique participants (2023)
+sum(table(unique(PES_All$id_participant)))
+
+#number of surveys per participant
+breakdown <- data.frame(table(PES_All$id_participant))
+breakdown <- breakdown %>% filter(Freq>0)
+#average of 1.9 surveys per participant (2022)
+#average of 2.0 surveys per participant (2023)
+mean(breakdown$Freq)
+sd(breakdown$Freq)
+sum(breakdown$Freq)
+
+#number of participants per number surveys completed (2022)
+#number of participants per number surveys completed (2023)
+breakdown2 <- data.frame(table(breakdown$Freq))
+
+```
+
+#Social Support
+##FAMS Family & Social Well-Being
+```{r}
+#legacy SRO
+fswbLegSRO <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "fams4_social_gs1_close", "fams4_social_gs2_familysupport", "fams4_social_gs3_friendsupport", "fams4_social_gs4_accepted", "fams4_social_gs5_communication", "fams4_social_ms13_understand", "fams4_social_ms14_leftout")]
+fswbLegSRO <- fswbLegSRO %>% filter(str_detect(promote_self_reported_outcomes_timestamp, "20"))
+fswbLegSRO$fswb_total <- fswbLegSRO$fams4_social_gs1_close + fswbLegSRO$fams4_social_gs2_familysupport + fswbLegSRO$fams4_social_gs3_friendsupport + fswbLegSRO$fams4_social_gs4_accepted + fswbLegSRO$fams4_social_gs5_communication + fswbLegSRO$fams4_social_ms13_understand + fswbLegSRO$fams4_social_ms14_leftout
+names(fswbLegSRO)[2] <- 'timestamp'
+
+#long SRO
+fswbSRO <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp","fams4_social_gs1_close", "fams4_social_gs2_familysupport", "fams4_social_gs3_friendsupport", "fams4_social_gs4_accepted", "fams4_social_gs5_communication", "fams4_social_ms13_understand", "fams4_social_ms14_leftout")]
+fswbSRO <- fswbSRO %>% filter(str_detect(promote_self_reported_outcomes_timestamp, "20"))
+fswbSRO$fswb_total <- fswbSRO$fams4_social_gs1_close + fswbSRO$fams4_social_gs2_familysupport + fswbSRO$fams4_social_gs3_friendsupport + fswbSRO$fams4_social_gs4_accepted + fswbSRO$fams4_social_gs5_communication + fswbSRO$fams4_social_ms13_understand + fswbSRO$fams4_social_ms14_leftout
+names(fswbSRO)[1] <- 'id_participant'
+names(fswbSRO)[2] <- 'timestamp'
+
+#long Update
+fswbUpd <- longitudinal[,c("id_participant_l", "update_questionnaire_timestamp", "fams4_social_gs1_close_353e34", "fams4_social_gs2_familysupport_052239", "fams4_social_gs3_friendsupport_693579", "fams4_social_gs4_accepted_8ed459", "fams4_social_gs5_communication_ef81f2", "fams4_social_ms13_understand_80d3bf", "fams4_social_ms14_leftout_300121")]
+fswbUpd <- fswbUpd %>% filter(str_detect(update_questionnaire_timestamp, "20"))
+fswbUpd$fswb_total <- fswbUpd$fams4_social_gs1_close_353e34 + fswbUpd$fams4_social_gs2_familysupport_052239 + fswbUpd$fams4_social_gs3_friendsupport_693579 + fswbUpd$fams4_social_gs4_accepted_8ed459 + fswbUpd$fams4_social_gs5_communication_ef81f2 + fswbUpd$fams4_social_ms13_understand_80d3bf + fswbUpd$fams4_social_ms14_leftout_300121
+names(fswbUpd)[1] <- 'id_participant'
+names(fswbUpd)[2] <- 'timestamp'
+names(fswbUpd)[3] <- 'fams4_social_gs1_close'
+names(fswbUpd)[4] <- 'fams4_social_gs2_familysupport'
+names(fswbUpd)[5] <- 'fams4_social_gs3_friendsupport'
+names(fswbUpd)[6] <- 'fams4_social_gs4_accepted'
+names(fswbUpd)[7] <- 'fams4_social_gs5_communication'
+names(fswbUpd)[8] <- 'fams4_social_ms13_understand'
+names(fswbUpd)[9] <- 'fams4_social_ms14_leftout'
+
+
+#combine-1756 scores
+fswbAll <- rbind(fswbLegSRO, fswbSRO, fswbUpd)
+fswbAll <- fswbAll %>% filter((!is.na(fswb_total)))
+fswbAll <- unique(fswbAll)
+
+#filter by PES PRTs
+fswbAll2 <- merge(PES_PRTs, fswbAll, by = 'id_participant',  all.y = TRUE)
+sum(table(unique(fswbAll2$id_participant))) #939 prts with both
+
+#Completion table
+fswb_Completion <- fswbAll2
+fswb_Completion$fswb <- (matrix("1", ncol = 1, nrow = nrow(fswb_Completion)))
+fswb_Completion <- fswb_Completion[,-c(2:10)]
+fswb_Completion <- unique(fswb_Completion)
+
+
+```
+
+##MSSS
+```{r}
+#legacy SRO
+msssLegSRO <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "msss5_1_doctor", "msss5_2_goodtime", "msss5_3_hug", "msss5_4_meals", "msss5_5_understand")]
+msssLegSRO <- msssLegSRO %>% filter(str_detect(promote_self_reported_outcomes_timestamp, "20"))
+msssLegSRO$msss_total <- msssLegSRO$msss5_1_doctor + msssLegSRO$msss5_2_goodtime + msssLegSRO$msss5_3_hug + msssLegSRO$msss5_4_meals + msssLegSRO$msss5_5_understand
+names(msssLegSRO)[2] <- 'timestamp'
+
+#long SRO
+msssSRO <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "msss5_1_doctor", "msss5_2_goodtime", "msss5_3_hug", "msss5_4_meals", "msss5_5_understand")]
+msssSRO <- msssSRO %>% filter(str_detect(promote_self_reported_outcomes_timestamp, "20"))
+msssSRO$msss_total <- msssSRO$msss5_1_doctor + msssSRO$msss5_2_goodtime + msssSRO$msss5_3_hug + msssSRO$msss5_4_meals + msssSRO$msss5_5_understand
+names(msssSRO)[1] <- 'id_participant'
+names(msssSRO)[2] <- 'timestamp'
+
+#long Update
+msssUpd <- longitudinal[,c("id_participant_l", "update_questionnaire_timestamp", "msss5_1_doctor_f22496", "msss5_2_goodtime_06c606", "msss5_3_hug_6086c5", "msss5_4_meals_720ba4", "msss5_5_understand_86cd2c")]
+msssUpd <- msssUpd %>% filter(str_detect(update_questionnaire_timestamp, "20"))
+msssUpd$msss_total <- msssUpd$msss5_1_doctor_f22496 + msssUpd$msss5_2_goodtime_06c606 + msssUpd$msss5_3_hug_6086c5 + msssUpd$msss5_4_meals_720ba4 + msssUpd$msss5_5_understand_86cd2c
+names(msssUpd)[1] <- 'id_participant'
+names(msssUpd)[2] <- 'timestamp'
+names(msssUpd)[3] <- 'msss5_1_doctor'
+names(msssUpd)[4] <- 'msss5_2_goodtime'
+names(msssUpd)[5] <- 'msss5_3_hug'
+names(msssUpd)[6] <- 'msss5_4_meals'
+names(msssUpd)[7] <- 'msss5_5_understand'
+
+#covid long- baseline, monthly, quarterly
+msssCovid <- covid[,c("id_participant_l", "covid19_baseline_timestamp", "msss5_1_doctor_baseline", "msss5_2_goodtime_baseline", "msss5_3_hug_baseline", "msss5_4_meals_baseline", "msss5_5_understand_baseline", "covid19_monthly_timestamp", "msss5_1_doctor_monthly", "msss5_2_goodtime_monthly", "msss5_3_hug_monthly", "msss5_4_meals_monthly", "msss5_5_understand_monthly", "covid19_quarterly_timestamp", "msss5_1_doctor_3m", "msss5_2_goodtime_3m", "msss5_3_hug_3m", "msss5_4_meals_3m", "msss5_5_understand_3m")]
+
+msss_covidTime <- msssCovid %>% gather(source, timestamp, 2,8,14)
+msss_covidTime <- msss_covidTime[,c("id_participant_l", "source", "timestamp")]
+msss1_covidScore <- msssCovid %>% gather(source, score1, 3,9,15)
+msss1_covidScore <- msss1_covidScore[,c("id_participant_l", "source", "score1")]
+msss2_covidScore <- msssCovid %>% gather(source, score2, 4,10,16)
+msss2_covidScore <- msss2_covidScore[,c("id_participant_l", "source", "score2")]
+msss3_covidScore <- msssCovid %>% gather(source, score3, 5,11,17)
+msss3_covidScore <- msss3_covidScore[,c("id_participant_l", "source", "score3")]
+msss4_covidScore <- msssCovid %>% gather(source, score4, 6,12,18)
+msss4_covidScore <- msss4_covidScore[,c("id_participant_l", "source", "score4")]
+msss5_covidScore <- msssCovid %>% gather(source, score5, 7,13,19)
+msss5_covidScore <- msss5_covidScore[,c("id_participant_l", "source", "score5")]
+msssCovid <- cbind(msss_covidTime, msss1_covidScore, msss2_covidScore, msss3_covidScore, msss4_covidScore, msss5_covidScore)
+
+msssCovid <- msssCovid[,c("id_participant_l", "timestamp", "score1", "score2", "score3", "score4", "score5")]
+msssCovid$msss_total <- msssCovid$score1 + msssCovid$score2 + msssCovid$score3 + msssCovid$score4 + msssCovid$score5
+names(msssCovid)[1] <- 'id_participant'
+names(msssCovid)[3] <- 'msss5_1_doctor'
+names(msssCovid)[4] <- 'msss5_2_goodtime'
+names(msssCovid)[5] <- 'msss5_3_hug'
+names(msssCovid)[6] <- 'msss5_4_meals'
+names(msssCovid)[7] <- 'msss5_5_understand'
+
+#combine- 6717 scores
+msssAll <- rbind(msssLegSRO, msssSRO, msssUpd, msssCovid)
+msssAll <- msssAll %>% filter((!is.na(msss_total)))
+msssAll <- unique(msssAll)
+
+#filter by PES PRTs
+msssAll2 <- merge(PES_PRTs, msssAll, by = 'id_participant',  all.y = TRUE)
+sum(table(unique(msssAll2$id_participant))) #1091
+
+#Completion table
+msss_Completion <- msssAll2
+msss_Completion$msss <- (matrix("1", ncol = 1, nrow = nrow(msss_Completion)))
+msss_Completion <- msss_Completion[,-c(2:8)]
+msss_Completion <- unique(msss_Completion)
+
+
+```
+
+#Depression
+##CESD
+```{r}
+#legacy SRO
+cesdLegacy <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "cesd_1_bother", "cesd_2_appetite", "cesd_3_blues", "cesd_4_good", "cesd_5_mind", "cesd_6_depressed", "cesd_7_effort", "cesd_8_hopeful", "cesd_9_failure", "cesd_10_fearful", "cesd_11_restless", "cesd_12_happy", "cesd_13_talk", "cesd_14_lonely", "cesd_15_unfriendly", "cesd_16_enjoyed", "cesd_17_crying", "cesd_18_sad", "cesd_19_disliked", "cesd_20_getgoing")]
+cesdLegacy <- rename(cesdLegacy, "cesd_date"="promote_self_reported_outcomes_timestamp")
+cesdLegacy <- cesdLegacy %>% filter(str_detect(cesd_date, "20"))
+
+#Longitudinal & update
+cesdLong <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "cesd_1_bother", "cesd_2_appetite", "cesd_3_blues", "cesd_4_good", "cesd_5_mind", "cesd_6_depressed", "cesd_7_effort", "cesd_8_hopeful", "cesd_9_failure", "cesd_10_fearful", "cesd_11_restless", "cesd_12_happy", "cesd_13_talk", "cesd_14_lonely", "cesd_15_unfriendly", "cesd_16_enjoyed", "cesd_17_crying", "cesd_18_sad", "cesd_19_disliked", "cesd_20_getgoing",
+                        "update_questionnaire_timestamp", "cesd_1_bother_843f0b", "cesd_2_appetite", "cesd_3_blues_250572", "cesd_4_good_0590ab", "cesd_5_mind_02695e", "cesd_6_depressed_ffb004", "cesd_7_effort_5e9070", "cesd_8_hopeful_766cb7", "cesd_9_failure_a4e73e", "cesd_10_fearful_314f89", "cesd_11_restless_948a59", "cesd_12_happy_c334ad", "cesd_13_talk_3176da", "cesd_14_lonely_3dd8ba", "cesd_15_unfriendly_33f04e", "cesd_16_enjoyed_2005c1", "cesd_17_crying_ef7d22", "cesd_18_sad_26261d", "cesd_19_disliked_d3c110", "cesd_20_getgoing_852a20")]
+cesdLong <- cesdLong %>% filter(str_detect(promote_self_reported_outcomes_timestamp, "20"))
+
+cesdLongDate <- cesdLong %>% gather(dateNumber, cesd_date, 2,23)
+cesdLongScore1 <- cesdLong %>% gather(scoreNumber1, cesd_1_bother, 3,24)
+cesdLongScore2 <- cesdLong %>% gather(scoreNumber2, cesd_2_appetite, 4,25)
+cesdLongScore3 <- cesdLong %>% gather(scoreNumber3, cesd_3_blues, 5,26)
+cesdLongScore4 <- cesdLong %>% gather(scoreNumber4, cesd_4_good, 6,27)
+cesdLongScore5 <- cesdLong %>% gather(scoreNumber5, cesd_5_mind, 7,28)
+cesdLongScore6 <- cesdLong %>% gather(scoreNumber6, cesd_6_depressed, 8,29)
+cesdLongScore7 <- cesdLong %>% gather(scoreNumber7, cesd_7_effort, 9,30)
+cesdLongScore8 <- cesdLong %>% gather(scoreNumber8, cesd_8_hopeful, 10,31)
+cesdLongScore9 <- cesdLong %>% gather(scoreNumber9, cesd_9_failure, 11,32)
+cesdLongScore10 <- cesdLong %>% gather(scoreNumber10, cesd_10_fearful, 12,33)
+cesdLongScore11 <- cesdLong %>% gather(scoreNumber11, cesd_11_restless, 13,34)
+cesdLongScore12 <- cesdLong %>% gather(scoreNumber12, cesd_12_happy, 14,35)
+cesdLongScore13 <- cesdLong %>% gather(scoreNumber13, cesd_13_talk, 15,36)
+cesdLongScore14 <- cesdLong %>% gather(scoreNumber14, cesd_14_lonely, 16,37)
+cesdLongScore15 <- cesdLong %>% gather(scoreNumber15, cesd_15_unfriendly, 17,38)
+cesdLongScore16 <- cesdLong %>% gather(scoreNumber16, cesd_16_enjoyed, 18,39)
+cesdLongScore17 <- cesdLong %>% gather(scoreNumber17, cesd_17_crying, 19,40)
+cesdLongScore18 <- cesdLong %>% gather(scoreNumber18, cesd_18_sad, 20,41)
+cesdLongScore19 <- cesdLong %>% gather(scoreNumber19, cesd_19_disliked, 21,42)
+cesdLongScore20 <- cesdLong %>% gather(scoreNumber20, cesd_20_getgoing, 22,43)
+
+cesdLong <- cbind(cesdLongDate, cesdLongScore1, cesdLongScore2, cesdLongScore3, cesdLongScore4, cesdLongScore5, cesdLongScore6, cesdLongScore7, cesdLongScore8, cesdLongScore9, cesdLongScore10, cesdLongScore11, cesdLongScore12, cesdLongScore13, cesdLongScore14, cesdLongScore15, cesdLongScore16, cesdLongScore17, cesdLongScore18, cesdLongScore19, cesdLongScore20)
+
+cesdLong<- cesdLong[,c("id_participant_l", "cesd_date", "cesd_1_bother", "cesd_2_appetite", "cesd_3_blues", "cesd_4_good", "cesd_5_mind", "cesd_6_depressed", "cesd_7_effort", "cesd_8_hopeful", "cesd_9_failure", "cesd_10_fearful", "cesd_11_restless", "cesd_12_happy", "cesd_13_talk", "cesd_14_lonely", "cesd_15_unfriendly", "cesd_16_enjoyed", "cesd_17_crying", "cesd_18_sad", "cesd_19_disliked", "cesd_20_getgoing")]
+cesdLong <- rename(cesdLong, "id_participant"="id_participant_l")
+cesdLong <- cesdLong %>% filter(str_detect(cesd_date, "20"))
+
+#Combine and score- 847 scores
+cesdAll <- rbind(cesdLong, cesdLegacy)
+
+#reverse items
+cesdAll$cesd_4_good <- as.integer(factor(cesdAll$cesd_4_good, levels=c(0,1,2,3), labels=c(3,2,1,0)))
+cesdAll$cesd_8_hopeful <- as.integer(factor(cesdAll$cesd_8_hopeful, levels=c(0,1,2,3), labels=c(3,2,1,0)))
+cesdAll$cesd_12_happy <- as.integer(factor(cesdAll$cesd_12_happy, levels=c(0,1,2,3), labels=c(3,2,1,0)))
+cesdAll$cesd_16_enjoyed <- as.integer(factor(cesdAll$cesd_16_enjoyed, levels=c(0,1,2,3), labels=c(3,2,1,0)))
+#add all items
+cesdAll$total_score <- (cesdAll$cesd_1_bother + cesdAll$cesd_2_appetite + cesdAll$cesd_3_blues + cesdAll$cesd_4_good + cesdAll$cesd_5_mind + cesdAll$cesd_6_depressed + cesdAll$cesd_7_effort + cesdAll$cesd_8_hopeful + cesdAll$cesd_9_failure + cesdAll$cesd_10_fearful + cesdAll$cesd_11_restless + cesdAll$cesd_12_happy + cesdAll$cesd_13_talk + cesdAll$cesd_14_lonely + cesdAll$cesd_15_unfriendly + cesdAll$cesd_16_enjoyed + cesdAll$cesd_17_crying + cesdAll$cesd_18_sad + cesdAll$cesd_19_disliked + cesdAll$cesd_20_getgoing)
+cesdAll <- cesdAll[,c("id_participant", "cesd_date", "total_score", "cesd_14_lonely")]
+cesdAll <- cesdAll %>% filter(!is.na(total_score))
+
+#filter by PES PRTs
+cesdAll2 <- merge(PES_PRTs, cesdAll, by = 'id_participant',  all.y = TRUE)
+sum(table(unique(cesdAll2$id_participant)))
+
+#Completion table
+cesd_Completion <- cesdAll2
+cesd_Completion$cesd <- (matrix("1", ncol = 1, nrow = nrow(cesd_Completion)))
+cesd_Completion <- cesd_Completion[,-c(2:4)]
+cesd_Completion <- unique(cesd_Completion)
+
+
+```
+
+##PHQ-2/9
+```{r}
+#sensor
+phqBSensor <- sensor[,c("record_id", "biweeklyq_timestamp", "phq_1", "phq_2", "phq_3", "phq_4", "phq_5", "phq_6", "phq_7", "phq_8", "phq_9", "phq_10", "phq_11")]
+names(phqBSensor)[1] <- 'id_participant'
+names(phqBSensor)[2] <- 'timestamp'
+phqBSensor <- phqBSensor %>% filter(str_detect(timestamp, "20"))
+names(phqBSensor)[3] <- 'phq2_1'
+names(phqBSensor)[4] <- 'phq2_2'
+names(phqBSensor)[5] <- 'phq9_1'
+names(phqBSensor)[6] <- 'phq9_2'
+names(phqBSensor)[7] <- 'phq9_3'
+names(phqBSensor)[8] <- 'phq9_4'
+names(phqBSensor)[9] <- 'phq9_5'
+names(phqBSensor)[10] <- 'phq9_6'
+names(phqBSensor)[11] <- 'phq9_7'
+names(phqBSensor)[12] <- 'phq9_8'
+names(phqBSensor)[13] <- 'phq9_9'
+
+phqMSensor <- sensor[,c("record_id", "monthlyq_timestamp", "phq_m1", "phq_m2", "phq_m3", "phq_m4", "phq_m5", "phq_m6", "phq_m7", "phq_m8", "phq_m9", "phq_m10", "phq_m11")]
+names(phqMSensor)[1] <- 'id_participant'
+names(phqMSensor)[2] <- 'timestamp'
+names(phqMSensor)[3] <- 'phq2_1'
+names(phqMSensor)[4] <- 'phq2_2'
+names(phqMSensor)[5] <- 'phq9_1'
+names(phqMSensor)[6] <- 'phq9_2'
+names(phqMSensor)[7] <- 'phq9_3'
+names(phqMSensor)[8] <- 'phq9_4'
+names(phqMSensor)[9] <- 'phq9_5'
+names(phqMSensor)[10] <- 'phq9_6'
+names(phqMSensor)[11] <- 'phq9_7'
+names(phqMSensor)[12] <- 'phq9_8'
+names(phqMSensor)[13] <- 'phq9_9'
+phqMSensor <- phqMSensor %>% filter(str_detect(timestamp, "20"))
+
+#prebiotic
+phqPreb <- prebiotics[,c("promote_id", "patient_health_questionnaire29_phq29_timestamp", "past_month_depressed", "past_month_pleasure", "phq9_feeling_down", "phq9_little_pleasure", "phq9_trouble_sleep", "phq9_appetite", "phq9_tired", "phq9_feel_bad", "phq9_concentrating", "phq9_moving", "phq9_thoughts")] 
+names(phqPreb)[1] <- 'id_participant'
+names(phqPreb)[2] <- 'timestamp'
+names(phqPreb)[3] <- 'phq2_1'
+names(phqPreb)[4] <- 'phq2_2'
+names(phqPreb)[5] <- 'phq9_1'
+names(phqPreb)[6] <- 'phq9_2'
+names(phqPreb)[7] <- 'phq9_3'
+names(phqPreb)[8] <- 'phq9_4'
+names(phqPreb)[9] <- 'phq9_5'
+names(phqPreb)[10] <- 'phq9_6'
+names(phqPreb)[11] <- 'phq9_7'
+names(phqPreb)[12] <- 'phq9_8'
+names(phqPreb)[13] <- 'phq9_9'
+phqPreb <- phqPreb %>% filter(str_detect(timestamp, "20"))
+
+#combine
+phqAll <- rbind(phqBSensor, phqMSensor, phqPreb)
+phqAll$phq2_total <- phqAll$phq2_1 + phqAll$phq2_2
+phqAll$phq9_total <- phqAll$phq9_1 + phqAll$phq9_2 + phqAll$phq9_3 + phqAll$phq9_4 + phqAll$phq9_5 + phqAll$phq9_6 + phqAll$phq9_7 + phqAll$phq9_8 + phqAll$phq9_9
+phqAll$phq9_total <- ifelse(grepl("0", phqAll$phq2_total), "0", phqAll$phq9_total)
+phqAll$phq9_total <- ifelse(grepl("1", phqAll$phq2_total), "0", phqAll$phq9_total)
+phqAll <- phqAll %>% filter((!is.na(phq9_total)))
+
+#filter by PES PRTs
+phqAll2 <- merge(PES_PRTs, phqAll, by = 'id_participant',  all.y = TRUE)
+sum(table(unique(phqAll2$id_participant)))
+
+#Completion table
+phq_Completion <- phqAll2
+phq_Completion$phq <- (matrix("1", ncol = 1, nrow = nrow(phq_Completion)))
+phq_Completion <- phq_Completion[,-c(2:15)]
+phq_Completion <- unique(phq_Completion)
+
+
+
+```
+
+
+##PROMIS Depression
+```{r}
+#longitudinal
+depression <- longitudinal[,c("id_participant_l", "promis_bank_v10_depression_timestamp", "promis_bank_v10_depression_tscore", "promis_bank_v10_depression_std_error")]
+depression <- rename(depression, "id_participant"="id_participant_l")
+depression <- depression %>% filter(str_detect(promis_bank_v10_depression_timestamp, "20"))
+
+#covid long
+depressionCovid <- vaccine[,c("id_participant_l", "promis_bank_v10_depression_timestamp", "promis_bank_v10_depression_tscore", "promis_bank_v10_depression_std_error")]
+depressionCovid <- rename(depressionCovid, "id_participant"="id_participant_l")
+depressionCovid <- depressionCovid %>% filter(str_detect(promis_bank_v10_depression_timestamp, "20"))
+
+#vaccine
+depressionVaccine <- vaccine[,c("id_participant_l", "promis_bank_v10_depression_timestamp", "promis_bank_v10_depression_tscore", "promis_bank_v10_depression_std_error")]
+depressionVaccine <- rename(depressionVaccine, "id_participant"="id_participant_l")
+depressionVaccine <- depressionVaccine %>% filter(str_detect(promis_bank_v10_depression_timestamp, "20"))
+
+#combine- 1881 scores
+depressionAll <- rbind(depression, depressionCovid, depressionVaccine)
+depressionAll <- depressionAll[order(depressionAll$id_participant), ]
+depressionAll <- rename(depressionAll, "depression_timestamp"="promis_bank_v10_depression_timestamp")
+depressionAll <- rename(depressionAll, "depression_tscore"="promis_bank_v10_depression_tscore")
+depressionAll <- rename(depressionAll, "depression_std_error"="promis_bank_v10_depression_std_error")
+depressionAll <- unique(depressionAll)
+
+#filter by PES PRTs
+depressionAll2 <- merge(PES_PRTs, depressionAll, by = 'id_participant',  all.y = TRUE)
+
+#Completion table
+depression_Completion <- depressionAll2
+depression_Completion$depression <- (matrix("1", ncol = 1, nrow = nrow(depression_Completion)))
+depression_Completion <- depression_Completion[,-c(2:4)]
+depression_Completion <- unique(depression_Completion)
+
+
+
+```
+
+#Fatigue: MFIS21
+```{r}
+mfisLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "mfis_1_alert", "mfis_2_attention", "mfis_3_think", "mfis_4_clumsy", "mfis_5_forgetful", "mfis_6_pace", "mfis_7_effort", "mfis_8_social", "mfis_9_away", "mfis_10_endurance", "mfis_11_decisions", "mfis_12_motivated", "mfis_13_weakness", "mfis_14_discomfort", "mfis_15_thinkingtasks", "mfis_16_organizing", "mfis_17_physicaltasks", "mfis_18_slow", "mfis_19_concentration", "mfis_20_physicallimit", "mfis_21_rest")]
+mfisLeg <- rename(mfisLeg, "mfis_date"="promote_self_reported_outcomes_timestamp")
+mfisLeg <- mfisLeg %>% filter(str_detect(mfis_date, "20"))
+
+#SRO & Update
+mfisSROUpd <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "mfis_1_alert", "mfis_2_attention", "mfis_3_think", "mfis_4_clumsy", "mfis_5_forgetful", "mfis_6_pace", "mfis_7_effort", "mfis_8_social", "mfis_9_away", "mfis_10_endurance", "mfis_11_decisions", "mfis_12_motivated", "mfis_13_weakness", "mfis_14_discomfort", "mfis_15_thinkingtasks", "mfis_16_organizing", "mfis_17_physicaltasks", "mfis_18_slow", "mfis_19_concentration", "mfis_20_physicallimit", "mfis_21_rest",
+                              "update_questionnaire_timestamp", "mfis_1_alert_a09009", "mfis_2_attention_240a6d", "mfis_3_think_0e5faa", "mfis_4_clumsy_7a36ec", "mfis_5_forgetful_d1ca7b", "mfis_6_pace_c52819", "mfis_7_effort_251423", "mfis_8_social_3966d9", "mfis_9_away_6582eb", "mfis_10_endurance_0af731", "mfis_11_decisions_51dc8d", "mfis_12_motivated_9ff989", "mfis_13_weakness_ff3d7e", "mfis_14_discomfort_4b9cfa", "mfis_15_thinkingtasks_d15a55", "mfis_16_organizing_229b1f", "mfis_17_physicaltasks_8a7d20", "mfis_18_slow_7e7753", "mfis_19_concentration_6fd272", "mfis_20_physicallimit_af05c8", "mfis_21_rest_dc44f0")]
+mfisSROUpd <- mfisSROUpd %>% filter(str_detect(id_participant_l, "PRT"))
+
+mfisSROUpdDate <- mfisSROUpd %>% gather(dateNumber, mfis_date, 2,24)
+mfisSROUpdScore1 <- mfisSROUpd %>% gather(scoreNumber1, mfis_1_alert, 3,25)
+mfisSROUpdScore2 <- mfisSROUpd %>% gather(scoreNumber2, mfis_2_attention, 4,26)
+mfisSROUpdScore3 <- mfisSROUpd %>% gather(scoreNumber3, mfis_3_think, 5,27)
+mfisSROUpdScore4 <- mfisSROUpd %>% gather(scoreNumber4, mfis_4_clumsy, 6,28)
+mfisSROUpdScore5 <- mfisSROUpd %>% gather(scoreNumber5, mfis_5_forgetful, 7,29)
+mfisSROUpdScore6 <- mfisSROUpd %>% gather(scoreNumber6, mfis_6_pace, 8,30)
+mfisSROUpdScore7 <- mfisSROUpd %>% gather(scoreNumber7, mfis_7_effort, 9,31)
+mfisSROUpdScore8 <- mfisSROUpd %>% gather(scoreNumber8, mfis_8_social, 10,32)
+mfisSROUpdScore9 <- mfisSROUpd %>% gather(scoreNumber9, mfis_9_away, 11,33)
+mfisSROUpdScore10 <- mfisSROUpd %>% gather(scoreNumber10, mfis_10_endurance, 12,34)
+mfisSROUpdScore11 <- mfisSROUpd %>% gather(scoreNumber11, mfis_11_decisions, 13,35)
+mfisSROUpdScore12 <- mfisSROUpd %>% gather(scoreNumber12, mfis_12_motivated, 14,36)
+mfisSROUpdScore13 <- mfisSROUpd %>% gather(scoreNumber13, mfis_13_weakness, 15,37)
+mfisSROUpdScore14 <- mfisSROUpd %>% gather(scoreNumber14, mfis_14_discomfort, 16,38)
+mfisSROUpdScore15 <- mfisSROUpd %>% gather(scoreNumber15, mfis_15_thinkingtasks, 17,39)
+mfisSROUpdScore16 <- mfisSROUpd %>% gather(scoreNumber16, mfis_16_organizing, 18,40)
+mfisSROUpdScore17 <- mfisSROUpd %>% gather(scoreNumber17, mfis_17_physicaltasks, 19,41)
+mfisSROUpdScore18 <- mfisSROUpd %>% gather(scoreNumber18, mfis_18_slow, 20,42)
+mfisSROUpdScore19 <- mfisSROUpd %>% gather(scoreNumber19, mfis_19_concentration, 21,43)
+mfisSROUpdScore20 <- mfisSROUpd %>% gather(scoreNumber20, mfis_20_physicallimit, 22,44)
+mfisSROUpdScore21 <- mfisSROUpd %>% gather(scoreNumber21, mfis_21_rest, 23,45)
+
+mfisSROUpd <- cbind(mfisSROUpdDate, mfisSROUpdScore1, mfisSROUpdScore2, mfisSROUpdScore3, mfisSROUpdScore4, mfisSROUpdScore5, mfisSROUpdScore6, mfisSROUpdScore7, mfisSROUpdScore8, mfisSROUpdScore9, mfisSROUpdScore10, mfisSROUpdScore11, mfisSROUpdScore12, mfisSROUpdScore13, mfisSROUpdScore14, mfisSROUpdScore15, mfisSROUpdScore16, mfisSROUpdScore17, mfisSROUpdScore18, mfisSROUpdScore19, mfisSROUpdScore20, mfisSROUpdScore21)
+mfisSROUpd<- mfisSROUpd[,c("id_participant_l", "mfis_date", "mfis_1_alert", "mfis_2_attention", "mfis_3_think", "mfis_4_clumsy", "mfis_5_forgetful", "mfis_6_pace", "mfis_7_effort", "mfis_8_social", "mfis_9_away", "mfis_10_endurance", "mfis_11_decisions", "mfis_12_motivated", "mfis_13_weakness", "mfis_14_discomfort", "mfis_15_thinkingtasks", "mfis_16_organizing", "mfis_17_physicaltasks", "mfis_18_slow", "mfis_19_concentration", "mfis_20_physicallimit", "mfis_21_rest")]
+mfisSROUpd <- rename(mfisSROUpd, "id_participant"="id_participant_l")
+mfisSROUpd <- mfisSROUpd %>% filter(str_detect(mfis_date, "20"))
+
+#combine
+mfis21All <- rbind(mfisSROUpd, mfisLeg)
+mfis21All$total <- mfis21All$mfis_1_alert + mfis21All$mfis_2_attention + mfis21All$mfis_3_think + mfis21All$mfis_4_clumsy + mfis21All$mfis_5_forgetful + mfis21All$mfis_6_pace + mfis21All$mfis_7_effort + mfis21All$mfis_8_social + mfis21All$mfis_9_away + mfis21All$mfis_10_endurance + mfis21All$mfis_11_decisions + mfis21All$mfis_12_motivated + mfis21All$mfis_13_weakness + mfis21All$mfis_14_discomfort + mfis21All$mfis_15_thinkingtasks + mfis21All$mfis_16_organizing + mfis21All$mfis_17_physicaltasks + mfis21All$mfis_18_slow + mfis21All$mfis_19_concentration + mfis21All$mfis_20_physicallimit + mfis21All$mfis_21_rest
+mfis21All <- mfis21All %>% filter((!is.na(total)))
+
+#filter by PES PRTs
+mfis21All2 <- merge(PES_PRTs, mfis21All, by = 'id_participant',  all.y = TRUE)
+
+#Completion table
+mfis21_Completion <- mfis21All2
+mfis21_Completion$mfis21 <- (matrix("1", ncol = 1, nrow = nrow(mfis21_Completion)))
+mfis21_Completion <- mfis21_Completion[,-c(2:24)]
+mfis21_Completion <- unique(mfis21_Completion)
+
+```
+
+#Fatigue: MFIS-5
+```{r}
+mfisSensor <- sensor[,c("record_id", "monthlyq_timestamp", "mfis_1_d9173d", "mfis_2_d71f66", "mfis_3_8c1a00", "mfis_4_89f111", "mfis_5_d8acb1")]
+mfisSensor <- mfisSensor %>% filter(!str_detect(record_id, "_0"))
+mfisSensor <- mfisSensor %>% filter(str_detect(monthlyq_timestamp, "20"))
+mfisSensor <- rename(mfisSensor, c("id_participant"="record_id"))
+mfisSensor <- rename(mfisSensor, c("mfis_date"="monthlyq_timestamp"))
+
+#score
+mfisSensor$total <- (mfisSensor$mfis_1_d9173d + mfisSensor$mfis_2_d71f66 + mfisSensor$mfis_3_8c1a00 + mfisSensor$mfis_4_89f111 + mfisSensor$mfis_5_d8acb1)
+
+#filter by PES PRTs
+mfisSensor2 <- merge(PES_PRTs, mfisSensor, by = 'id_participant',  all.y = TRUE)
+
+#Completion table
+mfis5_Completion <- mfisSensor2
+mfis5_Completion$mfis5 <- (matrix("1", ncol = 1, nrow = nrow(mfis5_Completion)))
+mfis5_Completion <- mfis5_Completion[,-c(2:8)]
+mfis5_Completion <- unique(mfis5_Completion)
+
+
+```
+
+
+#anxiety
+```{r}
+#we don't have any concrete measures
+#potentially relevant measures: FAMS emotional well-being, FAMS general contentment 
+```
+
+#Completion table
+```{r}
+completion_table <- merge(mfis5_Completion, database, by = 'id_participant',  all.y = TRUE)
+completion_table <- merge(mfis21_Completion, completion_table, by = 'id_participant',  all.y = TRUE)
+completion_table <- merge(depression_Completion, completion_table, by = 'id_participant',  all.y = TRUE)
+completion_table <- merge(phq_Completion, completion_table, by = 'id_participant',  all.y = TRUE)
+completion_table <- merge(cesd_Completion, completion_table, by = 'id_participant',  all.y = TRUE)
+completion_table <- merge(msss_Completion, completion_table, by = 'id_participant',  all.y = TRUE)
+completion_table <- merge(fswb_Completion, completion_table, by = 'id_participant',  all.y = TRUE)
+completion_table <- merge(PES_Completion, completion_table, by = 'id_participant',  all.y = TRUE)
+
+completion_table <- completion_table %>% filter((!is.na(PES)))
+completion_table$PES <- as.numeric(completion_table$PES)
+completion_table$fswb <- as.numeric(completion_table$fswb)
+completion_table$msss <- as.numeric(completion_table$msss)
+completion_table$cesd <- as.numeric(completion_table$cesd)
+completion_table$phq <- as.numeric(completion_table$phq)
+completion_table$depression <- as.numeric(completion_table$depression)
+completion_table$mfis21 <- as.numeric(completion_table$mfis21)
+completion_table$mfis5 <- as.numeric(completion_table$mfis5)
+
+
+#ES edit here, 11/23
+completion_table$total <- rowSums(completion_table[,c(2,3,4,5,6,7,8,9)], na.rm=TRUE)
+completion_table$fswb[is.na(completion_table$fswb)] <- 0
+completion_table$cesd[is.na(completion_table$cesd)] <- 0
+completion_table$phq[is.na(completion_table$phq)] <- 0
+completion_table$depression[is.na(completion_table$depression)] <- 0
+completion_table$mfis21[is.na(completion_table$mfis21)] <- 0
+completion_table$mfis5[is.na(completion_table$mfis5)] <- 0
+#completion_table$fswb <- replace_na(completion_table$fswb, "0")
+#completion_table$cesd <- replace_na(completion_table$cesd, "0")
+#completion_table$phq <- replace_na(completion_table$phq, "0")
+#completion_table$depression <- replace_na(completion_table$depression, "0")
+#completion_table$mfis21 <- replace_na(completion_table$mfis21, "0")
+#completion_table$mfis5 <- replace_na(completion_table$mfis5, "0")
+
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+completion_table$total2 <- apply( completion_table[ , c(3:9) ] , 1 , paste_noNA , sep=sep)
+test <- data.frame(table(completion_table$total2))
+completion_table$total2 <- factor(completion_table$total2, levels=c("0, 1, 0, 0, 0, 0, 0", "0, 1, 0, 0, 1, 0, 0", "0, 1, 0, 1, 1, 0, 0", "0, 1, 1, 0, 0, 1, 0", "0, 1, 1, 0, 1, 1, 0", "1, 1, 0, 0, 0, 0, 0", "1, 1, 0, 0, 0, 1, 0", "1, 1, 0, 0, 1, 0, 0", "1, 1, 0, 1, 0, 0, 1", "1, 1, 0, 1, 1, 0, 1", "1, 1, 1, 0, 0, 1, 0", "1, 1, 1, 0, 1, 1, 0", "1, 1, 1, 1, 0, 1, 1", "1, 1, 1, 1, 1, 1, 0", "1, 1, 1, 1, 1, 1, 1"), labels=c("MSSS", "MSSS, DEP", "MSSS, PHQ, DEP", "MSSS, CESD, MFIS21", "MSSS, CESD, DEP, MFIS21", "FSWB, MSSS", "FSWB, MSSS, MFIS21", "FSWB, MSSS, DEP", "FSWB, MSSS, PHQ, MFIS5", "FSWB, MSSS, PHQ, DEP, MFIS5", "FSWB, MSSS, CESD, MFIS21", "FSWB, MSSS, CESD, DEP, MFIS21", "FSWB, MSSS, CESD, PHQ, MFIS21, MFIS5", "FSWB, MSSS, CESD, PHQ, DEP, MFIS21", "FSWB, MSSS, CESD, PHQ, DEP, MFIS21, MFIS5"))
+test <- data.frame(table(completion_table$total2))
+
+write.csv(completion_table, "PainCompletion.csv")
+
+```
+
+```{r}
+completion_table2 <- completion_table
+
+completion_table2$PES <- as.numeric(completion_table2$PES)
+completion_table2$fswb <- as.numeric(completion_table2$fswb)
+completion_table2$msss <- as.numeric(completion_table2$msss)
+completion_table2$cesd <- as.numeric(completion_table2$cesd)
+completion_table2$phq <- as.numeric(completion_table2$phq)
+completion_table2$depression <- as.numeric(completion_table2$depression)
+completion_table2$mfis21 <- as.numeric(completion_table2$mfis21)
+completion_table2$mfis5 <- as.numeric(completion_table2$mfis5)
+
+completion_table2$social_support <- rowSums(completion_table2[,c(3,4)], na.rm=TRUE)
+completion_table2$depression2 <- rowSums(completion_table2[,c(5,6,7)], na.rm=TRUE)
+completion_table2$fatigue <- rowSums(completion_table2[,c(8,9)], na.rm=TRUE)
+completion_table2 <- completion_table2[,c(1,2,12,13, 14)]
+
+completion_table2$social_support <- factor(completion_table2$social_support, levels=c(1,2), labels=c(1,1))
+completion_table2$depression2 <- factor(completion_table2$depression2, levels=c(0,1,2,3), labels=c(0,1,1,1))
+completion_table2$fatigue <- factor(completion_table2$fatigue, levels=c(0,1,2), labels=c(0,1,1))
+
+completion_table2$total <- apply( completion_table2[ , c(3:5) ] , 1 , paste_noNA , sep=sep)
+completion_table2$total <- factor(completion_table2$total, levels=c("1, 1, 1", "1, 1, 0", "1, 0, 1", "0, 1, 1", "1, 0, 0", "0, 1, 0", "0, 0, 1", "0, 0, 0"), labels=c("All", "SD", "SF", "DF", "S", "D", "F", "None"))
+test2 <- data.frame(table(completion_table2$total))
+
+# All- 891
+# SD- 66
+# SF- 1
+# DF- 0
+# S- 45
+# D- 0
+# F- 0
+# None- 0
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
