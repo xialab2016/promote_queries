@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 #no packages required
 #copy the following code into any scripts that require the legacy PQ/SRO project data
 
+setwd("your_working_directory")
+
 legacy <- read.csv("PQ_SRO_Legacy.csv")
 missingID <- read.csv("MissingIdentifiers.csv")
 legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
