@@ -1,0 +1,78 @@
+---
+title: "Serum Query"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(stringr)
+library(tidyr)
+library(plyr)
+library(dplyr)
+library(lubridate)
+library(data.table)
+library(gtsummary)
+
+#This code runs a serum sample query for all PROMOTE participants
+
+#Finds list of participants with a serum sample and their demographics
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+database <- read.csv("Database.csv") #Export of the whole database project
+database <- database %>% filter(!str_detect(id_participant, "_x"))
+
+```
+
+#Serum Samples
+```{r}
+serum <- database[,c("id_participant", "blood1_date", "blood1_serum", "subtype_blood", "blood1_dmt_detail")]
+serum <- serum %>% filter(blood1_serum>0)
+sum(table(unique(serum$id_participant))) #919 unique participants, 1369 samples
+
+```
+
+#Demographics
+```{r}
+demogs <- database[,c("id_participant", "dob", "subject_sex", "race", "ethnicity", "subject_group", "date_firstsx", "date_msdx")]
+demogs <- demogs %>% filter(subject_sex>0)
+serum2 <- merge(demogs, serum, by = 'id_participant', all.y = TRUE)
+
+#Calculate age and disease duration
+serum2$blood1_date <- as.Date(serum2$blood1_date)
+serum2$dob <- as.Date(serum2$dob)
+serum2$blood1_date <- as.Date(serum2$blood1_date)
+serum2$date_firstsx <- as.Date(serum2$date_firstsx)
+serum2$age_collection <- as.numeric(difftime(serum2$blood1_date, serum2$dob, units="weeks")/52.25)
+serum2$disease_duration <- as.numeric(difftime(serum2$blood1_date, serum2$date_firstsx, units="weeks")/52.25)
+
+#relabel fields
+serum2$subject_sex <- factor(serum2$subject_sex, levels = c(1,2), labels = c("Male", "Female"))
+serum2$race <- factor(serum2$race, levels = c(1,2,3,4,5,99), labels = c("Black", "American Indian or Alaska Native", "Asian", "Caucasian", "Multi-racial", "Not Sure"))
+serum2$ethnicity <- factor(serum2$ethnicity, levels = c(1,2,99), labels = c("Hispanic or Latino", "Non-Hispanic or Latino", "Not Sure"))
+serum2$subject_group <- factor(serum2$subject_group, levels = c(1,2,3,99), labels = c("MS", "Other NID", "Controls", "Unknown"))
+serum2$subtype_blood <- factor(serum2$subtype_blood, levels = c(1,2,3,4,5,6,99), labels = c("CIS", "RIS", "RRMS", "SPMS", "PPMS", "NMO", "Does not have MS"))
+serum2$blood1_dmt_detail <- factor(serum2$blood1_dmt_detail, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,99), labels = c("Aubagio", "Avonex", "Betaseron", "Copaxone", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada",  "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "Kesimpta", "Soliris", "Uplizna", "Enspryng", "Ponvory", "Bafiertam", "None"))
+
+write.csv(serum2, "serum.csv")
+
+serum2 <- serum2[,c("id_participant", "dob", "age_collection", "subject_sex", "race", "ethnicity", "subject_group", "blood1_date", "subtype_blood", "disease_duration", "blood1_dmt_detail")]
+
+#generate table
+select(serum2, c(age_collection, subject_sex, race, ethnicity, subtype_blood, disease_duration, blood1_dmt_detail)) %>%
+    tbl_summary(statistic = list(c(age_collection, disease_duration) ~ "{mean} ({sd})"),
+                digits = list(c(age_collection, disease_duration) ~ 2),
+                label = list(age_collection ~ "Age (years, mean ± SD)", disease_duration ~ "Disease Duration (years, mean ± SD)", subject_sex ~ "Sex (n, % of cohort)", race ~ "Race (n, % of cohort)", ethnicity ~ "Ethnicity (n, % of cohort)", subtype_blood ~ "Disease Subtype (n, % of cohort)", blood1_dmt_detail ~ "DMT (n, % of cohort)")
+  ) %>%
+  modify_footnote(update = everything() ~ NA)
+
+
+```
+
+
