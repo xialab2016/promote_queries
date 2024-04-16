@@ -1,7 +1,16 @@
 # Sample collection
 
 1. Serum
-2. Plasma
+
+   Version 1: 2024-04-16
+
+   Finds list of participants with serum sample and their demographics
+
+   Input: PROMOTEDatabase
+
+   Output: Table of demographic summary for all PROMOTE participants with a serum sample, CSV file containing all participants with serum sample and their demographics
+   
+3. Plasma
 
    Version 1: 2024-04-15
 
