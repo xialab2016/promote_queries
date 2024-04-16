@@ -1,0 +1,240 @@
+---
+title: "Relapse Query"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(plyr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(tidyr)
+
+#Finds list of all relapses recorded for all PROMOTE participants across all sources
+  #does not include participants who we've only ever recorded not having relapses
+
+#Files used: PROMOTE Database, PROMOTE Longitudinal, covid, pre/pro
+
+#CHANGE FILE PATHS
+```
+
+#Import files
+```{r}
+#setwd("your_working_directory")
+
+longitudinal1 <- read.csv("long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+database <- read.csv("Database.csv") #Export of the whole database project
+database <- database %>% filter(str_detect(id_participant, "PRT"))
+database <- database %>% filter(!str_detect(id_participant, "_x"))
+
+covid <- read.csv("covid_long.csv") #Export of the whole original covid project
+
+prepro <- read.csv("PrePro.csv") #Export of the whole pre/probiotic project
+
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+```
+
+#EHR
+```{r}
+#Database history
+relapse_hx <- database[,c("id_participant", "relapse_number", "relapse_first_date", "relapse_first_type", "relapse_second_date", "relapse_second_type", "relapse_third_date", "relapse_third_type", "relapse_fourth_date", "relapse_fourth_type", "relapse_fifth_date", "relapse_fifth_type", "relapse_sixth_date", "relapse_sixth_type", "relapse_seventh_date", "relapse_seventh_type", "relapse_eighth_date", "relapse_eighth_type", "relapse_ninth_date", "relapse_ninth_type", "relapse_tenth_date", "relapse_tenth_type", "relapse_eleventh_date", "relapse_eleventh_type", "relapse_twelfth_date", "relapse_twelfth_type", "relapse_thirteenth_date", "relapse_thirteenth_type", "relapse_fourteenth_date", "relapse_fourteenth_type", "relapse_fifteenth_date", "relapse_fifteenth_type", "relapse_sixteenth_date", "relapse_sixteenth_type", "relapse_seventeenth_date", "relapse_seventeenth_type", "relapse_eighteenth_date", "relapse_eighteenth_type", "relapse_nineteenth_date", "relapse_nineteenth_type", "relapse_twentieth_date", "relapse_twentieth_type")]
+relapse_hx <- relapse_hx %>% filter(!is.na(relapse_number))
+
+relapse_hxDate <- relapse_hx %>% gather(startNumber, relapse_date, 3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41)
+relapse_hxDate <- relapse_hxDate[,c(1,2,23,24)]
+
+relapse_hxType <- relapse_hx %>% gather(typeNumber, type, 4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42)
+relapse_hxType <- relapse_hxType[,c(1,2,23,24)]
+
+relapse_hx2 <- cbind(relapse_hxDate, relapse_hxType)
+relapse_hx2 <- relapse_hx2[,c("id_participant", "relapse_number", "type", "relapse_date")]
+
+#Filter to keep 99s, but get rid of other NAs
+relapse_hx2 <- relapse_hx2 %>% filter((!is.na(type)) | (relapse_number==99))
+relapse_hx2[relapse_hx2 == ""] <- NA
+relapse_hx2 <- unique(relapse_hx2)
+
+#Label relapse types
+#relapse_hx2$type = factor(relapse_hx2$type, levels = c(1,2,3), labels = c("Clinical", "Radiological", "Both"))
+names(relapse_hx2)[2] <- 'total_number_relapses'
+relapse_hx2 <- relapse_hx2[order(relapse_hx2$id_participant, relapse_hx2$relapse_date), ]
+relapse_hx2 <- ddply(relapse_hx2, .(id_participant), mutate, relapse_number = seq_along(total_number_relapses))
+relapse_hx2 <- relapse_hx2[,c("id_participant", "total_number_relapses", "relapse_number", "type", "relapse_date")]
+relapse_hx2 <- relapse_hx2 %>% filter((!str_detect(relapse_date, "2023")))
+relapse_hx2 <- relapse_hx2[,-c(2,3)]
+```
+
+#Blood samples
+```{r}
+#Select necessary columns
+relapse_blood <- database[,c("id_participant", "blood1_relapse_number", "blood1_relapse_1date", "blood1_relapse_1type", "blood1_relapse_2date", "blood1_relapse_2type", "blood1_relapse_3date", "blood1_relapse_3type", "blood1_relapse_4date", "blood1_relapse_4type", "blood1_relapse_5date", "blood1_relapse_5type", "blood1_relapse_6date", "blood1_relapse_6type", "blood1_relapse_7date", "blood1_relapse_7type", "blood1_relapse_8date", "blood1_relapse_8type", "blood1_relapse_9date", "blood1_relapse_9type", "blood1_relapse_10date", "blood1_relapse_10type")]
+
+#Gather and bind dates and types
+relapse_bloodDate <- relapse_blood %>% gather(dateNumber, relapse_date, 3,5,7,9,11,13,15,17,19,21)
+relapse_bloodDate <- relapse_bloodDate[,c(1,2,13,14)]
+
+relapse_bloodType <- relapse_blood %>% gather(typeNumber, type, 4,6,8,10,12,14,16,18,20,22)
+relapse_bloodType <- relapse_bloodType[,c(1,13,14)]
+
+relapse_blood <- cbind(relapse_bloodDate, relapse_bloodType)
+relapse_blood <- relapse_blood[,c("id_participant", "type", "relapse_date")]
+  #filter for having relapses
+relapse_blood[relapse_blood == ""] <- NA  
+relapse_blood <- relapse_blood %>% filter(!is.na(relapse_date) | !is.na(type))
+
+relapse_blood <- unique(relapse_blood)
+
+```
+
+#Stool samples
+```{r}
+#Select necessary columns
+relapse_stool <- database[,c("id_participant", "stool_relapse_number", "stool_relapse_1date", "stool_relapse_1type", "stool_relapse_2date", "stool_relapse_2type", "stool_relapse_3date", "stool_relapse_3type", "stool_relapse_4date", "stool_relapse_4type", "stool_relapse_5date", "stool_relapse_5type", "stool_relapse_6date", "stool_relapse_6type", "stool_relapse_7date", "stool_relapse_7type", "stool_relapse_8date", "stool_relapse_8type", "stool_relapse_9date", "stool_relapse_9type", "stool_relapse_10date", "stool_relapse_10type")]
+
+#Gather and bind dates and types
+relapse_stoolDate <- relapse_stool %>% gather(dateNumber, relapse_date, 3,5,7,9,11,13,15,17,19,21)
+relapse_stoolDate <- relapse_stoolDate[,c(1,2,13,14)]
+
+relapse_stoolType <- relapse_stool %>% gather(typeNumber, type, 4,6,8,10,12,14,16,18,20,22)
+relapse_stoolType <- relapse_stoolType[,c(1,13,14)]
+
+relapse_stool <- cbind(relapse_stoolDate, relapse_stoolType)
+relapse_stool[relapse_stool == ""] <- NA  
+relapse_stool <- relapse_stool[,c("id_participant", "type", "relapse_date")]
+
+#filter for relapses
+relapse_stool <- relapse_stool %>% filter(!is.na(type) | !is.na(relapse_date))
+
+```
+
+#Update Q
+```{r}
+#There is no information in the SRO- only suspected relapse/ worsening wit relation to a changed DMT, which isn't enough to categorize as a relapse
+#UQ asks about any clinical relapses in the past year
+
+#Select necessary columns
+relapse_update <- longitudinal[,c("id_participant_l", "clinical_relapse", "clinical_relapse_number", "clinical_relapse_dates_1", "clinical_relapse_dates_2", "clinical_relapse_dates_3", "clinical_relapse_dates_4", "clinical_relapse_dates_5", "clinical_relapse_dates_6", "clinical_relapse_dates_7", "clinical_relapse_dates_8", "clinical_relapse_dates_9", "clinical_relapse_dates_10")]
+
+relapse_update <- relapse_update %>% gather(dateNumber, relapse_date, 4:13)
+relapse_update <- relapse_update[,c("id_participant_l", "clinical_relapse", "relapse_date")]
+relapse_update[relapse_update == ""] <- NA  
+relapse_update <- relapse_update %>% filter(clinical_relapse==1 & str_detect(relapse_date, "20"))
+
+names(relapse_update)[1] <- 'id_participant'
+names(relapse_update)[2] <- 'type'
+
+```
+
+#Covid
+```{r}
+#unable to say what type of relapse
+relapse_covid <- covid[,c("id_participant_l", "covid19_baseline_timestamp", "relapse_baseline", "covid19_monthly_timestamp", "relapse_monthly", "covid19_quarterly_timestamp", "relapse_3m")]
+
+#isolate the y/n question and the survey date as date of the relapse
+relapse_covidDate <- relapse_covid %>% gather(dateNumber, relapse_date, 2,4,6)
+relapse_covidPresence <- relapse_covid %>% gather(presenceNumber, relapse_presence, 3,5,7)
+relapse_covid <- cbind(relapse_covidDate, relapse_covidPresence)
+
+#format
+relapse_covid[relapse_covid == ""] <- NA  
+relapse_covid <- relapse_covid[,c("id_participant_l", "relapse_presence", "relapse_date")]
+relapse_covid <- relapse_covid %>% filter(relapse_presence==1 & str_detect(relapse_date, "20"))
+relapse_covid$relapse_date <- format(as.POSIXct(relapse_covid$relapse_date, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+
+names(relapse_covid)[1] <- 'id_participant'
+names(relapse_covid)[2] <- 'type'
+relapse_covid$type <- NA #unable to specify which type of relapse it was- survey asked y/n about either type
+
+```
+
+#Prebiotic
+```{r}
+#Select necessary columns
+relapse_prebiotic <- prepro[,c("record_id", "promote_id", "v1_clinical", "v1_radiological")]
+relapse_prebiotic[relapse_prebiotic == ""] <- NA  
+relapse_prebiotic <- relapse_prebiotic[-c(1),]
+relapse_prebiotic <- relapse_prebiotic %>%
+  dplyr::group_by(record_id) %>%
+  fill(promote_id) %>% 
+  fill(promote_id, .direction = "down")
+relapse_prebiotic <- relapse_prebiotic[,-c(1)]
+
+
+#where clinical and radiological relapse dates are the same, classify as both
+relapse_prebiotic$type <- ifelse(
+    (
+        relapse_prebiotic$v1_clinical==relapse_prebiotic$v1_radiological
+    ),
+    3,  #puts this where conditions are met
+    ifelse(
+    (
+        is.na(relapse_prebiotic$v1_radiological) &
+          !is.na(relapse_prebiotic$v1_clinical)
+    ),
+    1,  #puts this where conditions are met
+    ifelse(
+    (
+        is.na(relapse_prebiotic$v1_clinical) &
+          !is.na(relapse_prebiotic$v1_radiological)
+    ),
+    2,  #puts this where conditions are met
+    NA         #puts this where conditions are not met
+)
+)
+)
+
+#put in long format- allows you to categorize the type for radio & clinical relapses that happened on different dates
+relapse_prebiotic <- relapse_prebiotic %>% gather(dateNumber, relapse_date, 2,3)
+
+#categorize the type for relapses that happened on different dates
+relapse_prebiotic$type <- ifelse(
+    (
+        is.na(relapse_prebiotic$type) &
+          str_detect(relapse_prebiotic$dateNumber, "v1_clinical")
+    ),
+    1,  #puts this where conditions are met
+    ifelse(
+    (
+        is.na(relapse_prebiotic$type) &
+          str_detect(relapse_prebiotic$dateNumber, "v1_radiological")
+    ),
+    2,  #puts this where conditions are met
+    relapse_prebiotic$type         #puts this where conditions are not met
+)         
+)
+
+#format
+relapse_prebiotic <- relapse_prebiotic %>% filter(!is.na(relapse_date))
+relapse_prebiotic <- relapse_prebiotic[,-c(3)]
+names(relapse_prebiotic)[1] <- 'id_participant'
+
+```
+
+#Combine
+```{r}
+all_relapses <- rbind(relapse_hx2, relapse_blood, relapse_stool, relapse_update, relapse_covid, relapse_prebiotic)
+all_relapses <- all_relapses[order(all_relapses$id_participant, all_relapses$relapse_date), ]
+all_relapses$relapse_date <- as.Date(all_relapses$relapse_date)
+all_relapses <- all_relapses %>% filter(relapse_date<=Sys.Date() | is.na(relapse_date))
+all_relapses <- unique(all_relapses)
+
+#WARNING: this file is not cleaned for relapses listed with the following potential errors:
+  #recorded on slightly different days- ex. 1-30 days different
+  #recorded as separate radio & clinical relapses and/ or a "both" relapse
+
+write.csv(all_relapses, "allrelapses.csv")
+
+```
+
+
+
