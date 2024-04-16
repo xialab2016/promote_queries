@@ -199,3 +199,13 @@
     Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Covid longitudinal, PrePro
 
     Output: CSV file with all relapse dates and types for all PROMOTE participants (who have at least one recorded relapse)
+
+29. Sexual Satisfaction Scale (SSS)
+
+    Version 1: 2024-04-16
+
+    Scores all SSS available for PROMOTE participants
+
+    Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
+
+    Output: CSV file with all SSS scores for PROMOTE participants, histogram of all SSS scores
