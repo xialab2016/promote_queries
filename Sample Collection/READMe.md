@@ -35,13 +35,22 @@
    Version 1: 2024-04-02
 
    Finds list of participants with DNA sample and their demographics
-
+ Iden
    Input: PROMOTEDatabase, Genomic data attained participant list
 
    Output: Table of demographic summary for all PROMOTE participants with a DNA sample, CSV file containing all participants with DNA sample and their demographics
    
 6. Stool
-7. Cerebrospinal fluid (CSF)
+
+   Version 1: 2024-04-16
+
+   Finds number of stool samples/list of all stool samples, combined with demographic/subtype information, statistics regarding stool sample collection for the PROMOTE project
+
+   Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
+
+   Output: Table with statistics regarding stool sample collection, CSV file with demographic information for participants with stool samples, CSV file with subtypes for all PROMOTE participants with stool sample, CSV file with all stool samples for which a subtype was not provided (NP), CSV file with number of stool samples per participants and the amount of time elapses between longitudinal samples (for same participant), CSV file for all stool samples donated by cohabs
+   
+8. Cerebrospinal fluid (CSF)
 
    Version 1: 2024-04-02
 
