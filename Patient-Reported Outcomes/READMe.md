@@ -189,3 +189,13 @@
     Input: Sensor
 
     Output: CSV file with all PSS scores from the Sensor project, histogram of all PSS scores
+
+28. Relapses
+
+    Version 1: 2024-04-16
+
+    Creates one long data frame with relapses captured from all sources for the PROMOTE project
+
+    Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Covid longitudinal, PrePro
+
+    Output: CSV file with all relapse dates and types for all PROMOTE participants (who have at least one recorded relapse)
