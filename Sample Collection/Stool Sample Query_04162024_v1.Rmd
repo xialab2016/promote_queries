@@ -30,7 +30,7 @@ library(reshape2)
 
 #Load and filter data
 ```{r}
-#setwd("your_working_directory")
+setwd("your_working_directory")
 
 dataMain <- read.csv("Database.csv") #Export from the jupityr code
 dataMain <- dataMain %>% filter(str_detect(id_participant, 'PRT'))
