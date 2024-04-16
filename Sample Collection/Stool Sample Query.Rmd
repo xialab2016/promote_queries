@@ -1,0 +1,524 @@
+---
+title: "Stool Sample Query"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+```{r} 
+library(data.table)
+library(tableone)
+library(stringr)
+library(tidyr)
+library(table1)
+library(plyr)
+library(dplyr)
+library(knitr)
+library(eeptools)
+library(tibble)
+library(reshape2)
+
+#Finds stool sample information for all PROMOTE participants
+  #Must run the promote_data_creation jupityr code using the github materials to obtain the main data file
+
+#CHANGE FILE PATHS
+
+```
+
+#Load and filter data
+```{r}
+#setwd("your_working_directory")
+
+dataMain <- read.csv("Database.csv") #Export from the jupityr code
+dataMain <- dataMain %>% filter(str_detect(id_participant, 'PRT'))
+
+#Number of people with at least one stool sample
+#dataMain <- dataMain %>% filter(stool_eligibile!="")
+dataMain <- dataMain %>% filter(stool0a_collection_date!="" | stool0b_collection_date!="" | collection1a_date!="" | collection1b_date!="")
+```
+
+#Demographics
+```{r}
+#Load desired columns
+dataDemographics <- dataMain[ , c("id_participant", "name_first", "name_last", "dob", "race", "ethnicity", "subject_sex", "date_firstsx")]
+dataDemographics <- unique(dataDemographics)
+
+#Label data and find %s
+#race/ethnicity (% non-Hispanic European)
+dataDemographics$race <- factor(dataDemographics$race, levels=c(1,2,3,4,5,6, 99), labels=c("Black or African American", "American Indian or Alaska Native", "Asian", "White", "More Than One Race", "Native Hawaiian or Other Pacific Islander", "Unknown/Not Reported"))
+proportions <- table(dataDemographics$race)/length(dataDemographics$race)
+percentages <- proportions*100
+print(signif(percentages), digits = 3)
+
+dataDemographics$ethnicity <- factor(dataDemographics$ethnicity, levels=c(1,2,99), labels=c("Hispanic or Latino","Non-Hispanic or Latino","Unknown/ Not Reported"))
+proportions <- table(dataDemographics$ethnicity)/length(dataDemographics$ethnicity)
+percentages <- proportions*100
+print(signif(percentages), digits = 3)
+
+#sex (% female)
+dataDemographics$subject_sex <- factor(dataDemographics$subject_sex, levels = c(1,2), labels = c("Male", "Female"))
+proportions <- table(dataDemographics$subject_sex)/length(dataDemographics$subject_sex)
+percentages <- proportions*100
+print(signif(percentages), digits = 4)
+
+#find disease duration (mean, SD) *
+start = as.Date(dataDemographics$date_firstsx)
+end = as.Date(Sys.Date())
+ageDisease <- as.numeric(difftime(end, start, units="weeks")/52.25)
+ageDisease <- round(ageDisease,1)
+diseaseDuration <- as.data.frame(ageDisease)
+
+#mean(ageDisease, na.rm = TRUE)
+print(paste0("Average duration of disease: ", signif(mean(ageDisease, na.rm=TRUE), digits = 4), " years"))
+#sd(ageDisease, na.rm = TRUE)
+print(paste0("SD of disease duration: ", signif(sd(ageDisease, na.rm = TRUE), digits = 4), " years"))
+
+#Add disease duration to dataDemographics
+dataDemographics <- cbind(dataDemographics, diseaseDuration)
+
+```
+
+#Display Samples and Efficacy
+```{r}
+#Display desired columns
+dataSamples <- dataMain[ , c("id_participant", "stool_dmt_detail", "collection1a_date","collection1b_date","imsms_dmt_detail", "stool0a_collection_date", "stool0b_collection_date")]
+
+#Change NA to 100 to be able to code for data Not Provided;;  Not needed, keep NAs to combine imsms and promote samples to code for efficacy
+  # dataSamples$imsms_dmt_detail[is.na(dataSamples$imsms_dmt_detail)] <- 100
+  # dataSamples$stool_dmt_detail[is.na(dataSamples$stool_dmt_detail)] <- 100
+
+#Create column with DMT status that will be labled by efficacy-- combine iMSMS and PROMOTE sample DMTs
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+
+sep=", "
+dataSamples$dmtEfficacy<- apply( dataSamples[ , c(2,5) ] , 1 , paste_noNA , sep=sep)
+
+#Label DMTs from iMSMS samples
+dataSamples$imsms_dmt_detail <- factor(dataSamples$imsms_dmt_detail, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,99, 100), labels = c("Aubagio", "Avonex", "Betaseron", "Copaxone/Glatopa", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada", "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "None", "Not Provided"))
+
+#Label DMTs from PROMOTE samples
+dataSamples$stool_dmt_detail <- factor(dataSamples$stool_dmt_detail, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,99, 100), labels = c("Aubagio", "Avonex", "Betaseron", "Copaxone/Glatopa", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada", "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "None", "Not Provided"))
+
+#Account for the NA values- no DMT provided
+dataSamples$dmtEfficacy <- sub("^$", NA, dataSamples$dmtEfficacy)
+dataSamples$dmtEfficacy[is.na(dataSamples$dmtEfficacy)] <- 101
+
+#DMT efficacy
+dataSamples$dmtEfficacy <- factor(dataSamples$dmtEfficacy, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,99, 100, 101), labels = c("Standard", "Standard", "Standard", "Standard", "Standard", "Standard", "High", "Standard", "Standard", "High", "Unknown", "High", "High", "Standard", "Unknown", "High", "High", "Standard", "Unknown", "Standard", "Not on DMT", "Unknown", "No DMT Recorded"))
+
+proportions <- table(dataSamples$dmtEfficacy)/length(dataSamples$dmtEfficacy)
+percentages <- proportions*100
+print(signif(percentages), digits = 4)
+```
+
+#Disease subtype
+```{r}
+#disease status / subtype (% relapsing MS, % progressive MS, % control etc)
+
+#Use longitudinal and legacy databases to find pt reported disease type
+#import combined longitudinal file, select out subtype column, combine with dataSimple table by PRT
+longitudinal1 <- read.csv("long1.csv", header = TRUE, stringsAsFactors = FALSE) #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("long2.csv", header = TRUE, stringsAsFactors = FALSE) #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+longitudinal <- longitudinal %>% filter(str_detect(redcap_event_name, 'year_01_arm_'))
+longitudinal <- rename(longitudinal, c("id_participant"="id_participant_l"))
+longitudinal <- longitudinal %>% filter(str_detect(id_participant, 'PRT'))
+longitudinal <- longitudinal[ , c("id_participant", "ms_category", "subject_group1")]
+
+#import legacy data
+legacy <- read.csv("PQ_SRO_Legacy.csv")
+# Load the missing identifier data to fill in legacy PRTs
+missing <- read.csv("MissingIdentifiers.csv")
+#Replace missing PRT identifiers in legacy
+legacy <- (merge(missing, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+#filter legacy for desired columns
+legacy <- legacy[ , c("id_participant", "ms_category")]
+legacy <- legacy %>% filter(str_detect(id_participant, 'PRT'))
+
+#merge longitudinal and legacy
+long_leg <- merge(longitudinal, legacy, by = 'id_participant', all = TRUE)
+#remove duplicates
+long_leg[211,"ms_category.y"] <- NA
+long_leg[694,"ms_category.y"] <- NA
+long_leg[240,"ms_category.y"] <- NA
+long_leg[331,"ms_category.y"] <- NA
+long_leg[559,"ms_category.y"] <- NA
+long_leg[854,"ms_category.y"] <- NA
+long_leg[201,"ms_category.y"] <- NA
+long_leg <- long_leg[-192,]
+#combine ms_categories from long and leg into one column
+long_leg$ms_category<- apply( long_leg[ , c(2,4) ] , 1 , paste_noNA , sep=sep)
+long_leg$ms_category <- sub("^$", NA, long_leg$ms_category)
+
+#label variables for MS type
+long_leg$ms_category[is.na(long_leg$ms_category)] <- 99
+long_leg$ms_category <- factor(long_leg$ms_category, levels=c(1,2,3,4,5,6,7,99), labels=c("CIS", "RIS", "RRMS-Active", "RRMS-Stable","SPMS", "PPMS", "NMO", "Not Provided"))
+#label subject group
+long_leg$subject_group1[is.na(long_leg$subject_group1)] <- 99
+long_leg$subject_group1 <- factor(long_leg$subject_group1, levels = c(1,2,3,99), labels = c("MS", "Related Disorder" ,"Control", "Not Provided"))
+
+#merge long/leg and demographics
+dataMerged <- (merge(dataDemographics, long_leg, by = 'id_participant', all.x = TRUE))
+#Removes the .y and .x columns
+dataMerged <- dataMerged[,-10]
+dataMerged <- dataMerged[,-11]
+
+#Percentages of all subtypes
+proportions <- table(dataMerged$ms_category)/length(dataMerged$ms_category)
+percentages <- proportions*100
+print(signif(percentages), digits = 3)
+
+#Percentages of overall subject group from longitudinal questionnaires
+proportions <- table(dataMerged$subject_group1)/length(dataMerged$subject_group1)
+percentages <- proportions*100
+print(signif(percentages), digits = 3)
+
+#Filter for Not Provided disease type
+dataMerged2 <- dataMerged %>% filter(ms_category=="Not Provided")
+#Percentages of "Not Provided" subtype that are overall MS, related, control
+  #From longitudinal data
+proportions <- table(dataMerged2$subject_group1)/length(dataMerged2$subject_group1)
+percentages <- proportions*100
+print(signif(percentages), digits = 3)
+
+#Percentages of "Not Provided" subtype that are overall MS, related, control
+#change subject group to that provided by the database
+subjectGroupData <- dataMain[,c("id_participant", "subject_group")]
+dataMerged2b <- merge(dataMerged2, subjectGroupData, by = "id_participant")
+dataMerged2b <- unique(dataMerged2b)
+
+#delete the subject_group1 from longitudinal and code levels
+dataMerged2b <- dataMerged2b[,-10]
+dataMerged2b$subject_group <- factor(dataMerged2b$subject_group, levels = c(1,2,3), labels = c("MS", "Related Disorder", "Control"))
+#%
+proportions <- table(dataMerged2b$subject_group)/length(dataMerged2b$subject_group)
+percentages <- proportions*100
+print(signif(percentages), digits = 3)
+
+#Subject group of all stool donors of all subtypes based on database data
+dataMerged_b <- merge(dataMerged, subjectGroupData, by = "id_participant")
+dataMerged_b  <- unique(dataMerged_b)
+dataMerged_b <- dataMerged_b[,-10]
+dataMerged_b$subject_group <- factor(dataMerged_b$subject_group, levels = c(1,2,3), labels = c("MS", "Related Disorder", "Control"))
+proportions <- table(dataMerged_b$subject_group)/length(dataMerged_b$subject_group)
+percentages <- proportions*100
+print(signif(percentages), digits = 3)
+
+
+```
+
+#Samples Analysis
+```{r}
+#age at sample collection (mean, SD)
+dataSamples$collection1a_date <- sub("^$", NA, dataSamples$collection1a_date)
+#PROMOTE Collection 1
+start = as.Date(dataDemographics$dob)
+end = as.Date(dataSamples$collection1a_date)
+PROMOTE1 <- difftime(end, start, units="weeks")/52.25
+PROMOTE1 <- round(PROMOTE1,2)
+PROMOTE1_age <- as.data.frame(PROMOTE1)
+
+#mean(PROMOTE1, na.rm = TRUE)
+print(paste0("Average age at time of first PROMOTE donation: ", signif(mean(PROMOTE1, na.rm=TRUE), digits = 4), " years"))
+#sd(PROMOTE1, na.rm = TRUE)
+print(paste0("SD of age at time of first PROMOTE donation: ", signif(sd(PROMOTE1, na.rm = TRUE), digits = 4), " years"))
+
+#PROMOTE Collection 2
+dataSamples$collection1b_date <- sub("^$", NA, dataSamples$collection1b_date)
+start = as.Date(dataDemographics$dob)
+end = as.Date(dataSamples$collection1b_date)
+PROMOTE2 <- as.numeric(difftime(end, start, units="weeks")/52.25)
+PROMOTE2 <- round(PROMOTE2,2)
+PROMOTE2_age <- as.data.frame(PROMOTE2)
+
+#mean(PROMOTE2, na.rm = TRUE)
+print(paste0("Average age at time of second PROMOTE donation: ", signif(mean(PROMOTE2, na.rm=TRUE), digits = 4), " years"))
+#sd(PROMOTE2, na.rm = TRUE)
+print(paste0("SD of age at time of second PROMOTE donation: ", signif(sd(PROMOTE2, na.rm = TRUE), digits = 4), " years"))
+
+#iMSMS Collection 1
+dataSamples$stool0a_collection_date <- sub("^$", NA, dataSamples$stool0a_collection_date)
+start = as.Date(dataDemographics$dob)
+end = as.Date(dataSamples$stool0a_collection_date)
+iMSMS1 <- as.numeric(difftime(end, start, units="weeks")/52.25)
+iMSMS1 <- round(iMSMS1,2)
+iMSMS1_age <- as.data.frame(iMSMS1)
+
+#mean(iMSMS1, na.rm = TRUE)
+print(paste0("Average age at time of first iMSMS donation: ", signif(mean(iMSMS1, na.rm=TRUE), digits = 4), " years"))
+#sd(iMSMS1, na.rm = TRUE)
+print(paste0("SD of age at time of first iMSMS donation: ", signif(sd(iMSMS1, na.rm = TRUE), digits = 4), " years"))
+
+#iMSMS Collection 2
+dataSamples$stool0b_collection_date <- sub("^$", NA, dataSamples$stool0b_collection_date)
+start = as.Date(dataDemographics$dob)
+end = as.Date(dataSamples$stool0b_collection_date)
+iMSMS2 <- as.numeric(difftime(end, start, units="weeks")/52.25)
+iMSMS2 <- round(iMSMS2,2)
+iMSMS2_age <- as.data.frame(iMSMS2)
+
+#mean(iMSMS2, na.rm = TRUE)
+print(paste0("Average age at time of second iMSMS donation: ", signif(mean(iMSMS2, na.rm=TRUE), digits = 4), " years"))
+#sd(iMSMS2, na.rm = TRUE)
+print(paste0("SD of age at time of second iMSMS donation: ", signif(sd(iMSMS2, na.rm = TRUE), digits = 4), " years"))
+
+#Add age at sample collection and disease duration to dataSimple
+dataSamples <- cbind(dataSamples, PROMOTE1_age, PROMOTE2_age, iMSMS1_age, iMSMS2_age)
+
+```
+
+#Sample numbers
+```{r}
+#Total number of stool samples in the entire PROMOTE cohort
+print(paste0("Total number of samples: ", nrow(dataSamples)))
+
+#Number of unique participants w/ samples
+print(paste0("Number of unique participants with samples: ", nrow(dataMerged)))
+
+#Mean (SD) number of stool samples per participant who has at least one stool sample
+  #summarize and group by functions
+groupedSamples <- dataSamples %>%
+  mutate_at(vars(-id_participant), as.numeric) %>%
+    group_by(id_participant) %>%                    #,year   to also filter by year
+      summarise(sample_number=n())
+
+#Find mean, SD of samples for people with at least one sample
+groupedSamples2 <-as.data.frame(groupedSamples)
+#mean(groupedSamples2$sample_number, na.rm = TRUE)
+print(paste0("Mean number of samples per participant: ", signif(mean(groupedSamples2$sample_number, na.rm = TRUE), digits = 3)))
+#sd(groupedSamples2$sample_number, na.rm = TRUE)
+print(paste0("SD of samples per participant: ", signif(sd(groupedSamples2$sample_number, na.rm = TRUE), digits = 3)))
+
+
+#Mean (SD) duration between stool samples for participant who has at least two stool samples
+  # id people with more than one sample and filter them out
+groupedSamples3 <- groupedSamples2 %>% filter(sample_number > 1)
+  # match this list of multiple-sample-people to dataSamples-- put in groupedSamples3
+groupedSamples3 <- merge(groupedSamples3, dataSamples, by = 'id_participant', all = TRUE)
+  # use melt to put all dates and all values into their own one columns (then there'll be multiple rows for each participant)
+groupedSamples3 <- as.data.frame(groupedSamples3)
+groupedSamples3$collection1a_date <- as.Date(groupedSamples3$collection1a_date)
+groupedSamples3$collection1b_date <- as.Date(groupedSamples3$collection1b_date)
+groupedSamples3$stool0a_collection_date <- as.Date(groupedSamples3$stool0a_collection_date)
+groupedSamples3$stool0b_collection_date <- as.Date(groupedSamples3$stool0b_collection_date)
+groupedSamples4 = reshape2::melt(groupedSamples3, measure.vars=c("collection1a_date", "collection1b_date", "stool0a_collection_date", "stool0b_collection_date"), variable.name = "sample_type", value.name = "sample_date") 
+
+#Rename sample types
+groupedSamples4$sample_type <- factor(groupedSamples4$sample_type, levels=c("collection1a_date", "collection1b_date", "stool0a_collection_date", "stool0b_collection_date"), labels=c("PROMOTE Collection 1", "PROMOTE Collection 2", "iMSMS Collection 1", "iMSMS Collection 2"))
+
+# order by date-- make sure it is a date (as.date(ymd))
+groupedSamples4$sample_date <- as.Date(groupedSamples4$sample_date)
+  
+# use mutate and lag-- calculates the difference between the one before and the one after; and order by year
+groupedSamples4 <- groupedSamples4 %>% filter(is.na(groupedSamples4$sample_date)==FALSE)
+groupedSamples4$sample_date <- as.Date(groupedSamples4$sample_date)
+groupedSamples4 <- groupedSamples4 %>%
+  group_by(id_participant) %>%
+    mutate(diff=lag(sample_date, default = first(sample_date), order_by = sample_date)-sample_date)
+#Fix the negatives
+groupedSamples4$diff <- signif((abs(groupedSamples4$diff)), digits = 3)
+
+#Change it to years instead of days
+  #This table will include samples given within 14 days of each other
+groupedSamples5 <- groupedSamples4
+groupedSamples5$diff <- ((groupedSamples4$diff)/365)
+                               
+#mean(groupedSamples4$diff, na.rm = TRUE)
+print(paste0("Mean number of years between sample donation: ", signif(mean(groupedSamples5$diff, na.rm = TRUE), digits = 3)))
+#sd(groupedSamples4$diff, na.rm = TRUE)
+print(paste0("SD of number of years between sample donation: ", signif(sd(groupedSamples5$diff, na.rm = TRUE), digits = 3)))
+
+#Create new table that filters out differences less than 14 days
+  #Divide that by 365, find new mean and SD
+groupedSamples6 <- groupedSamples4 %>% filter(diff >= 14)
+groupedSamples6$diff <- ((groupedSamples6$diff)/365)
+groupedSamples6$diff <- signif(groupedSamples6$diff, digits = 3)
+
+print(paste0("Sample size: ", nrow(groupedSamples6)))
+print(paste0("Mean number of years between sample donation: ", signif(mean(groupedSamples6$diff, na.rm = TRUE), digits = 3)))
+print(paste0("SD of number of years between sample donation: ", signif(sd(groupedSamples6$diff, na.rm = TRUE), digits = 3)))
+
+
+#Collection Table
+collectionTable <- groupedSamples5[ , c("id_participant", "sample_type", "sample_date")]
+```
+
+#Cohabs with samples
+```{r}
+#filter for only MS participants that have MS (not NMO or Not Provided)
+bonusSubtypes <- dataMerged %>% filter(dataMerged$ms_category!="NMO" & dataMerged$ms_category!="Not Provided")
+
+#create list of participants who are the cohabitants, associated with the enrolled participant
+  #PRTs are all MS, therefore the cohab is the control; subject_group refers to PRT, not cohab
+cohabList <- dataMain[, c("id_participant", "cohab_id", "subject_group")]
+cohabList <- cohabList %>% filter(str_detect(cohab_id,'PRT'))
+cohabList <- cohabList %>% filter(subject_group==1)
+cohabList$subject_group <- factor(cohabList$subject_group, levels = (1), labels = c("MS"))
+cohabList <- unique(cohabList)
+#Merge list of stool donors with list of cohabs based on cohab ID
+cohabList <- rename(cohabList, c("COHAB"="cohab_id"))
+
+#List of stool donors
+  #Change the prt id to COHAB to match list of cohabs up with the list of donations
+dataMerged3 <-dataMerged
+dataMerged3 <- rename(dataMerged3, c("COHAB"="id_participant"))
+
+#Merge
+cohabList2 <- merge(cohabList,dataMerged3, by = "COHAB")
+  #in this table, id_participant and subject_group correspond to the MS patient PRT.  The COHAB, name, dob, etc, all correspond to the cohab!
+
+#Make new list with the id_participant IDs listed in cohabList2-- these are the PRTs with cohabs with samples
+bonusSubtypes2 <- merge(cohabList2, bonusSubtypes, by = "id_participant")
+
+bonusSubtypes2 <- bonusSubtypes2[,c("id_participant", "name_first.y", "name_last.y", "dob.y", "race.y", "ethnicity.y", "subject_sex.y", "date_firstsx.y", "ageDisease.y", "ms_category.y", "COHAB", "subject_group", "name_first.x", "name_last.x", "dob.x")]
+
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Participant ID"="id_participant"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("First Name PRT"="name_first.y"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Last Name PRT"="name_last.y"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Date of Birth PRT"="dob.y"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Race PRT"="race.y"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Ethnicity PRT"="ethnicity.y"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Sex PRT"="subject_sex.y"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Date of First Sx PRT"="date_firstsx.y"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Disease Duration PRT"="ageDisease.y"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("MS Subtype PRT"="ms_category.y"))
+
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Cohab ID"="COHAB"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("PRT Subject Group"="subject_group"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Cohab First Name"="name_first.x"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Cohab Last Name"="name_last.x"))
+bonusSubtypes2 <- rename(bonusSubtypes2, c("Cohab Date of Birth"="dob.x"))
+
+
+```
+
+#Format & Export
+```{r}
+#Rename dataMerged (demographics) columns
+dataMerged <- rename(dataMerged, c("Participant ID"="id_participant"))
+dataMerged <- rename(dataMerged, c("First Name"="name_first"))
+dataMerged <- rename(dataMerged, c("Last Name"="name_last"))
+dataMerged <- rename(dataMerged, c("Date of Birth"="dob"))
+dataMerged <- rename(dataMerged, c("Race"="race"))
+dataMerged <- rename(dataMerged, c("Ethnicity"="ethnicity"))
+dataMerged <- rename(dataMerged, c("Sex"="subject_sex"))
+dataMerged <- rename(dataMerged, c("Date of First Sx"="date_firstsx"))
+dataMerged <- rename(dataMerged, c("Disease Duration (years)"="ageDisease"))
+dataMerged <- rename(dataMerged, c("Subject Group"="subject_group1"))
+dataMerged <- rename(dataMerged, c("MS Subtype"="ms_category"))
+
+#Rename dataMerged2  columns
+dataMerged2 <- rename(dataMerged2, c("Participant ID"="id_participant"))
+dataMerged2 <- rename(dataMerged2, c("First Name"="name_first"))
+dataMerged2 <- rename(dataMerged2, c("Last Name"="name_last"))
+dataMerged2 <- rename(dataMerged2, c("Date of Birth"="dob"))
+dataMerged2 <- rename(dataMerged2, c("Race"="race"))
+dataMerged2 <- rename(dataMerged2, c("Ethnicity"="ethnicity"))
+dataMerged2 <- rename(dataMerged2, c("Sex"="subject_sex"))
+dataMerged2 <- rename(dataMerged2, c("Date of First Sx"="date_firstsx"))
+dataMerged2 <- rename(dataMerged2, c("Disease Duration (years)"="ageDisease"))
+dataMerged2 <- rename(dataMerged2, c("Subject Group"="subject_group1"))
+dataMerged2 <- rename(dataMerged2, c("MS Subtype"="ms_category"))
+
+#Rename dataMerged2b  columns
+dataMerged2b <- rename(dataMerged2b, c("Participant ID"="id_participant"))
+dataMerged2b <- rename(dataMerged2b, c("First Name"="name_first"))
+dataMerged2b <- rename(dataMerged2b, c("Last Name"="name_last"))
+dataMerged2b <- rename(dataMerged2b, c("Date of Birth"="dob"))
+dataMerged2b <- rename(dataMerged2b, c("Race"="race"))
+dataMerged2b <- rename(dataMerged2b, c("Ethnicity"="ethnicity"))
+dataMerged2b <- rename(dataMerged2b, c("Sex"="subject_sex"))
+dataMerged2b <- rename(dataMerged2b, c("Date of First Sx"="date_firstsx"))
+dataMerged2b <- rename(dataMerged2b, c("Disease Duration (years)"="ageDisease"))
+dataMerged2b <- rename(dataMerged2b, c("MS Subtype"="ms_category"))
+dataMerged2b <- rename(dataMerged2b, c("Subject Group"="subject_group"))
+
+#Rename dataMerged_b  columns
+dataMerged_b <- rename(dataMerged_b, c("Participant ID"="id_participant"))
+dataMerged_b <- rename(dataMerged_b, c("First Name"="name_first"))
+dataMerged_b <- rename(dataMerged_b, c("Last Name"="name_last"))
+dataMerged_b <- rename(dataMerged_b, c("Date of Birth"="dob"))
+dataMerged_b <- rename(dataMerged_b, c("Race"="race"))
+dataMerged_b <- rename(dataMerged_b, c("Ethnicity"="ethnicity"))
+dataMerged_b <- rename(dataMerged_b, c("Sex"="subject_sex"))
+dataMerged_b <- rename(dataMerged_b, c("Date of First Sx"="date_firstsx"))
+dataMerged_b <- rename(dataMerged_b, c("Disease Duration (years)"="ageDisease"))
+dataMerged_b <- rename(dataMerged_b, c("MS Subtype"="ms_category"))
+dataMerged_b <- rename(dataMerged_b, c("Subject Group"="subject_group"))
+
+#Rename groupedSamples4 (samples) columns
+groupedSamples4 <- rename(groupedSamples4, c("Participant ID"="id_participant"))
+groupedSamples4 <- rename(groupedSamples4, c("Number of Samples Given"="sample_number"))
+groupedSamples4 <- rename(groupedSamples4, c("PROMOTE Donation DMT"="stool_dmt_detail"))
+groupedSamples4 <- rename(groupedSamples4, c("iMSMS Donation DMT"="imsms_dmt_detail"))
+groupedSamples4 <- rename(groupedSamples4, c("DMT Efficacy"="dmtEfficacy"))
+groupedSamples4 <- rename(groupedSamples4, c("Age at First PROMOTE Donation (years)"="PROMOTE1"))
+groupedSamples4 <- rename(groupedSamples4, c("Age at Second PROMOTE Donation (years)"="PROMOTE2"))
+groupedSamples4 <- rename(groupedSamples4, c("Age at First iMSMS Donation (years)"="iMSMS1"))
+groupedSamples4 <- rename(groupedSamples4, c("Age at Second iMSMS Donation (years)"="iMSMS2"))
+groupedSamples4 <- rename(groupedSamples4, c("Sample Type"="sample_type"))
+groupedSamples4 <- rename(groupedSamples4, c("Sample Date"="sample_date"))
+groupedSamples4 <- rename(groupedSamples4, c("Time From Previous Donation (years)"="diff"))
+
+#Rename groupedSamples6 columns
+groupedSamples6 <- rename(groupedSamples6, c("Participant ID"="id_participant"))
+groupedSamples6 <- rename(groupedSamples6, c("Number of Samples Given"="sample_number"))
+groupedSamples6 <- rename(groupedSamples6, c("PROMOTE Donation DMT"="stool_dmt_detail"))
+groupedSamples6 <- rename(groupedSamples6, c("iMSMS Donation DMT"="imsms_dmt_detail"))
+groupedSamples6 <- rename(groupedSamples6, c("DMT Efficacy"="dmtEfficacy"))
+groupedSamples6 <- rename(groupedSamples6, c("Age at First PROMOTE Donation (years)"="PROMOTE1"))
+groupedSamples6 <- rename(groupedSamples6, c("Age at Second PROMOTE Donation (years)"="PROMOTE2"))
+groupedSamples6 <- rename(groupedSamples6, c("Age at First iMSMS Donation (years)"="iMSMS1"))
+groupedSamples6 <- rename(groupedSamples6, c("Age at Second iMSMS Donation (years)"="iMSMS2"))
+groupedSamples6 <- rename(groupedSamples6, c("Sample Type"="sample_type"))
+groupedSamples6 <- rename(groupedSamples6, c("Sample Date"="sample_date"))
+groupedSamples6 <- rename(groupedSamples6, c("Time From Previous Donation (years)"="diff"))
+
+#Rename collectionTable
+collectionTable <- rename(collectionTable, c("Participant ID"="id_participant"))
+collectionTable <- rename(collectionTable, c("Sample Type"="sample_type"))
+collectionTable <- rename(collectionTable, c("Sampme Date"="sample_date"))
+
+#Export tables
+#Contains all demographic information
+write.csv(dataMerged, "Demographics.csv", row.names = FALSE)
+#Contains subject group from longitudinal for "Not Provided" disease subtypes
+write.csv(dataMerged2, "NPSubjectGroupLong.csv", row.names = FALSE)
+
+#Contains subject group from database for "Not Provided" disease subtypes
+write.csv(dataMerged2b, "NPSubjectGroupData.csv")
+#Contains subject group from database for all stool donors
+write.csv(dataMerged_b, "SubjectGroupData.csv")
+
+#Contains # of samples per participant and time differences for every sample
+write.csv(groupedSamples4, "Samples.csv", row.names = FALSE)
+#Contains time differences for samples given > 14 days apart
+write.csv(groupedSamples6, "TwoWeekSamples.csv", row.names = FALSE)
+
+#Simple table of collections
+write.csv(collectionTable, "CollectionTable.csv", row.names = FALSE)
+
+#Bonus table
+write.csv(bonusSubtypes2, "CohabsDonated.csv", row.names = FALSE)
+
+
+```
+
+
+
+
+
+
+
+
+
