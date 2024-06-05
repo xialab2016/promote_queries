@@ -1,0 +1,188 @@
+---
+title: "confirmed disability code"
+output: html_document
+date: "2023-11-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+#my only goal for this query is to have an output for participants that indicates whether or not they've had confirmed disability worsening/improvement
+#starting by reading in the prt list for the project this was originally made for, going to assign baseline PDDS as the one closest to (BUT AFTER) start_date
+```{r}
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+database <- read.csv("database.csv")
+database[database == ""] <- NA
+database
+```
+
+#reading in pdds query output file and bmi_prt_list (adjust this for other prt lists as needed, but note that the file being read in should have column containing the date you want to use for baseline)
+```{r}
+all_pdds2 <- read.csv("pdds_all.csv") #read this in from PDDS Query.rmd
+all_pdds2
+bmi_prt_list2 <- read.csv("all_repop.csv")
+bmi_prt_list <- bmi_prt_list2 %>% 
+  select(id_participant, outcome_date_start) %>% 
+  unique()
+bmi_prt_list$outcome_date_start <- ymd(bmi_prt_list$outcome_date_start) #formatting dates
+bmi_prt_list <- bmi_prt_list %>% 
+  mutate(today = Sys.Date()) %>% 
+  filter(outcome_date_start < today) %>% #getting rid of participants who have outcome_date_start in future
+  select(id_participant, outcome_date_start) %>% 
+  unique()
+bmi_prt_list
+```
+
+```{r}
+all_pdds <- all_pdds2
+all_pdds$date <- ymd(all_pdds$date) #formatting dates
+all_pdds
+```
+
+
+```{r}
+#specifying that scores needs to have been from a date after (or the same as) outcome start date
+flat2 <- merge(all_pdds, bmi_prt_list, by = "id_participant")
+flat <- flat2 %>% 
+  select(-X) %>% 
+  filter(date >= outcome_date_start) %>% 
+  unique()
+flat #this contains all scores after outcome start date
+
+base_scores <- flat %>% #base_scores contains id_participant, baseline score and baseline date
+  arrange(id_participant, date) %>% 
+  group_by(id_participant) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  rename(base_date = date) %>% 
+  rename(base_score = score) %>% 
+  select(-outcome_date_start)
+base_scores
+```
+
+#now I'm going to re-merge flat and base_scores to add in the baseline date and score, then can start filtering based on date
+```{r}
+kitty2 <- merge(flat, base_scores, by = "id_participant")
+kitty <- kitty2 %>% 
+  select(-outcome_date_start) %>% 
+  unique() %>% 
+  filter(date > base_date) %>% 
+  mutate(time_int = interval(base_date, date)) %>% 
+  mutate(time_to_sub_score = time_length(time_int, "month")) %>%  #adding time between baseline date and each subsequent date
+  select(-time_int) %>% 
+  unique() %>% 
+  mutate(score_diff = score - base_score) #written such that if score_diff is positive, there was an increase in score (worsening disability) and if score_diff is negative, there was a decrease in score (improving disability)
+kitty
+
+#here is where I'm adding the time window filter. If adjust from 6-months to 3-months (or vice versa) need to manually adjust here.
+kitty <- kitty %>% 
+  filter(time_to_sub_score >= 6)
+kitty
+```
+
+#now going to make a data frame to hold participants who have an increase of 1 from base score at least once out of all of their subsequent scores
+#remember! If a person experienced both disability progression and disability improvement, the one that happened first is the one we are going to count (as if we stopped analyzing the rest of the scores after confirming either disability progression or improvement)
+```{r}
+conf_worse <- kitty %>% 
+  filter(score_diff >= 1) %>% 
+  unique() %>% 
+  group_by(id_participant) %>% 
+  filter(time_to_sub_score == min(time_to_sub_score)) %>% 
+  rename(time_to_worse = time_to_sub_score) %>% 
+  mutate(disability_status = 1) %>% 
+  select(id_participant, time_to_worse, disability_status)
+conf_worse
+```
+
+```{r}
+#making dataframe to hold confirmed improvement
+conf_improv <- kitty %>% 
+  filter(score_diff < 0) %>% 
+  unique() %>% 
+  group_by(id_participant) %>% 
+  filter(time_to_sub_score == min(time_to_sub_score)) %>% 
+  rename(time_to_improv = time_to_sub_score) %>% 
+  mutate(disability_status = 2) %>% 
+  select(id_participant, time_to_improv, disability_status)
+conf_improv
+```
+
+#now merging the confirmed worsens and the confirmed improvs, then filtering to keep the one that happened earlier
+```{r}
+sorting2 <- merge(conf_worse, conf_improv, by = "id_participant")
+sorting <- sorting2 %>% 
+  mutate(disability_status = ifelse(time_to_worse < time_to_improv, 1, 2)) %>% 
+  select(id_participant, disability_status)
+sorting
+```
+
+#now filtering the 'both' prts out of conf_worse and conf_improv...going to add them in separately after with all the disability status = 0 prts
+```{r}
+last_worse <- conf_worse
+last_worse <- last_worse %>% 
+  select(id_participant, disability_status)
+last_worse2 <- anti_join(last_worse, sorting, by = "id_participant")
+last_worse2
+
+last_improv <- conf_improv
+last_improv <- last_improv %>% 
+  select(id_participant, disability_status)
+last_improv2 <- anti_join(last_improv, sorting, by = "id_participant")
+last_improv2
+```
+
+#now pulling all disability_status = 0 prts, then adding them and the both prts to generate a final list
+```{r}
+play <- kitty %>% 
+  group_by(id_participant) %>% 
+  filter(!any(score_diff != 0)) %>% 
+  unique() %>% 
+  mutate(disability_status = 0) %>% 
+  select(id_participant, disability_status) %>% 
+  unique()
+play
+
+mix <- rbind(last_worse2, last_improv2) 
+mix2 <- rbind(mix, sorting)
+mix3 <- rbind(mix2, play)
+mix4 <- mix3 %>% 
+  unique()
+mix4
+```
+#writing output file which will contain only participant id and disabiity status just like for the sustained disability code
+```{r}
+write.csv(mix4, "conf_disability_output.csv")
+```
+
+
+
+
+
+
+
+
+
+
