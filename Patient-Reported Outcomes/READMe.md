@@ -230,7 +230,7 @@
 
     Output: CSV file of Covid Registry PROMOTE participant list, then mean (SD) number of scores for each of the above listed outcomes
 
-31. FFQ Descriptive Stats
+32. FFQ Descriptive Stats
 
     Version 1: 2024-06-05
 
@@ -239,4 +239,18 @@
     Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, PrePro
 
     Output: Generates number of unique participants that have completed at least one FFQ, how many FFQ those participants have completed, mean (sd) number of scores per participants, and mean, sd, median, and IQR of time elapsed between consecutive FFQs for participants that have completed at least 2
+
+33. FFQ Descriptive Stats
+
+    Version 1: 2024-06-05
+
+    Finds sustained disability progression outcomes for all PROMOTE participants
+
+    Input: PROMOTEDatabase, pdds_all, clinical_demographics
+
+    Output: Generates one of four outcomes for each PROMOTE participants based on PDDS availability:
+      0 = had sufficient data to assess, neither sustained increase or decrease
+      1 = had sufficient data to assess, sustained PDDS increase (disability worsening)
+      2 = had sufficient data to assess, sustained PDDS decrease (disability improvement)
+      NA = did not have sufficient PDDS data to assess
 
