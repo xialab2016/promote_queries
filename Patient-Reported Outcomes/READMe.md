@@ -210,7 +210,7 @@
 
     Output: CSV file with all SSS scores for PROMOTE participants, histogram of all SSS scores
 
-29. Alochol Query
+30. Alcohol Query
 
     Version 1: 2024-06-05
 
@@ -219,3 +219,13 @@
     Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO
 
     Output: XLSX file with list of all PROMOTE participants with at least one question answered regarding alcohol consumption, CSV file with list of all MS participants with alcohol data and at least one PDDS score, CSV file with list of all NMO participants with alcohol data and at least one PDDS score, CSV file with list of all MOG participants with alcohol data and at least one PDDS score, CSV file with list of all healthy control participants with alcohol data and at least one PDDS score
+
+31. Covid Longitudinal Outcomes
+
+    Version 1: 2024-06-05
+
+    Finds mean (sd) number of scores/reports per participants for the following outcomes (within the Covid cohort): PDDS, MSRSR, PROMIS cognitive, PROMIS physical, PROMIS depression, SDMT, 9HP, T25W, EDSS, and OCT
+
+    Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Covid Registry, pdds_all.csv, msrsr_all.csv, promis_physical_all.csv. promis_cognitive_all.csv, promis_depression_all.csv, sdmt_all.csv, hpt_all.csv, footwalk_all.csv, oct_all.csv
+
+    Output: CSV file of Covid Registry PROMOTE participant list, then mean (SD) number of scores for each of the above listed outcomes
