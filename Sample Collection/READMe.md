@@ -59,3 +59,13 @@
    Input: PROMOTEDatabase
 
    Output: Table of demographic summary of participants who have donated CSF samples, CSV file containing all CSF sample dates with the demographics of the donating participant.
+
+9. Discontinuation Query
+
+   Version 1: 2024-06-05
+
+   Finds PROMOTE participants that we have a serum sample for both before and after permanant discontinuation of DMT, using estimate exported from EHR Data in 4/2024
+
+   Input: PROMOTEDatabase, discont_raw.csv (in the relevant .csv files folder of shared OneDrive -> Data Analysis -> Data Queries)
+
+   Output: CSV file with all PROMOTE participants that we have serum sample for both before and after permanent discontinuation of DMT (estimated based on incomplete EHR data), mean (sd) time length between the two samples (most recent before and most recent after)
