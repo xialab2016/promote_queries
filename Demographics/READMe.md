@@ -17,3 +17,17 @@ Queries all sources to identify PROMOTE participants that are first degree relat
 Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2 Legacy PQ/SRO
 
 Output: CSV file of all PROMOTE MS participants with a first degree relative that has MS, CSV file of all PROMOTE participants (regardless of subject group) with a first degree relative that has MS
+
+# PROMOTESubjectGroups
+
+Version 1: 2024-06-04
+
+Generates a table with the totals of all subject groups in the PROMOTE Study.
+
+Input: PROMOTEDatabase
+
+Output: Table with number of unique participants in each of the following subject groups: CIS, RIS, RRMS, SPMS, PPMS, Uncategorized MS, MS Total, NMOSD, MOGAD, Myelitis, Other NID, Other Autoimmune, Other Misc, Other NID/OND/Autoimmune Total, Healthy Control, Unknown, Total Overall
+
+
+
+
