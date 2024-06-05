@@ -1,0 +1,149 @@
+---
+title: "Discontinuation"
+output: html_document
+date: "2024-01-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+database <- read.csv("database.csv")
+database[database == ""] <- NA
+database
+discont_raw <- read.csv("discont_raw.csv")
+discont_raw$latest_date <- mdy(discont_raw$latest_date)
+discont_raw$DMT_date_last <- mdy(discont_raw$DMT_date_last)
+discont_raw
+```
+
+#making df to contain all serum/plasma samples
+```{r}
+samples <- database %>% 
+  select(id_participant, blood1_date, blood1_serum, blood1_plasma) %>% 
+  filter(blood1_serum > 0 & blood1_plasma > 0) %>% 
+  unique()
+samples$blood1_date <- ymd(samples$blood1_date)
+samples
+```
+
+#Making a df containing all participants who have discontinued DMT (according to EHR data) 
+```{r}
+discont <- discont_raw %>% 
+  filter(discontin == TRUE) %>% 
+  select(-Rx, -X, -discontin, -latest_date) %>% 
+  dplyr::rename(disco_date = DMT_date_last)
+discont
+```
+
+
+#now merging to find participants that have at least one sample before disco_date
+```{r}
+samples_discont <- merge(samples, discont, by = "id_participant")
+samples_discont
+
+before <- samples_discont %>% 
+  filter(blood1_date < disco_date) %>% 
+  mutate(time = "before")
+before
+
+after <- samples_discont %>% 
+  filter(blood1_date > disco_date) %>% 
+  mutate(time = "after")
+after
+
+bef_aft2 <- rbind(before, after)
+bef_aft <- bef_aft2 %>% 
+  dplyr::group_by(id_participant) %>% 
+  mutate(n = n_distinct(time)) %>% #only keeping participants with a sample before and a sample after
+  ungroup() %>% 
+  select(-thewindow_days) %>% 
+  unique() %>% 
+  filter(n == 2)
+bef_aft
+
+after2 <- after %>% 
+  select(id_participant, blood1_date) %>% 
+  dplyr::rename(after_date = blood1_date) %>% 
+  unique()
+
+bef_aft2 <- merge(bef_aft, after2, by = "id_participant")
+bef_aft3 <- bef_aft2 %>% 
+  group_by(id_participant) %>% 
+  filter(blood1_date < disco_date) %>% 
+  select(-time_interval, -time, -n)
+bef_aft3
+write.csv(bef_aft3, "discont_query_out.csv")
+```
+
+```{r}
+bef_aft_prts <- bef_aft %>% 
+  select(id_participant, disco_date, Treatment_GenericName) %>% 
+  unique()
+bef_aft_prts
+
+#write.csv(bef_aft_prts, "discont_prts.csv")
+```
+
+#finding most recent before / after blood1_dates
+```{r}
+recent_bef <- bef_aft %>% 
+  group_by(id_participant) %>% 
+  filter(time == "before") %>% 
+  filter(blood1_date == max(blood1_date)) %>% 
+  ungroup() %>% 
+  select(id_participant, blood1_date) %>% 
+  rename(first_blood = blood1_date) %>% 
+  unique()
+recent_bef
+
+recent_aft <- bef_aft %>% 
+  group_by(id_participant) %>% 
+  filter(time == "after") %>% 
+  filter(blood1_date == max(blood1_date)) %>% 
+  ungroup() %>% 
+  select(id_participant, blood1_date) %>% 
+  rename(last_blood = blood1_date) %>% 
+  unique()
+recent_aft
+
+recent_compare2 <- merge(recent_bef, recent_aft, by = "id_participant")
+recent_compare <- recent_compare2 %>% 
+  mutate(time_int = interval(first_blood, last_blood)) %>% 
+  mutate(time_diff = time_length(time_int, "month")) %>% 
+  mutate(time_diff_yr = time_diff/12) %>% 
+  select(-time_int, -time_diff)
+recent_compare
+
+mean(recent_compare$time_diff_yr)
+sd(recent_compare$time_diff_yr)
+```
+
+
+
+
