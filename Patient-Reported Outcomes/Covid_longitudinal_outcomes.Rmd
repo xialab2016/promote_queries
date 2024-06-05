@@ -1,0 +1,354 @@
+---
+title: "Covid Longitudinal Outcomes Query"
+output: html_document
+date: "2024-01-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+database <- read.csv("database.csv")
+long1 <- read.csv("long1.csv")
+long2 <- read.csv("long2.csv")
+long <- rbind(long1, long2)
+database
+long
+```
+
+
+#importing participant list from Chenyi
+```{r}
+#importing covid registry from the COVID19 Registry project
+covid_reg2 <- read.csv("covid_registry.csv")
+covid_reg <- covid_reg2 %>% 
+  select(descript_study, test_date) %>% 
+  rename(id_participant = descript_study) %>% 
+  unique()
+covid_reg[covid_reg == ""] <- NA
+covid_reg$test_date <- ymd(covid_reg$test_date)
+covid_reg <- covid_reg %>% 
+  drop_na()
+covid_reg
+
+#merging lists together to get all ids and all of their test dates, then filtering to keep only UPMC participants
+covid2 <- merge(covid_ids, covid_reg)
+covid <- covid2 %>% 
+  filter(str_detect(id_participant, "PRT")) %>% 
+  group_by(id_participant) %>% 
+  filter(test_date == min(test_date)) %>% #keeping only first positive test date for each participant
+  ungroup()
+covid 
+```
+#want to see time distribution of (first acute) covid dx dates
+```{r}
+#first for all prts (including public, cumc, etc)
+covid_reg %>% 
+  filter(str_detect(id_participant, "PRT")) %>% 
+  ggplot(aes(x = test_date)) +
+  geom_histogram(bins = 50)
+```
+
+```{r}
+covid_reg2 <- covid_reg %>% 
+  group_by(id_participant) %>% 
+  filter(test_date == max(test_date)) %>% #filtering to keep only the first date of covid infection if there are multiple infections for one participant
+  ungroup() %>% 
+  unique()
+covid_reg2
+```
+
+
+```{r}
+prt_covid <- covid %>% 
+  filter(str_detect(id_participant, "PRT")) %>% 
+  select(id_participant) %>% 
+  unique()
+prt_covid
+
+write.csv(prt_covid,"prt_list.csv") #this is just if you need to export the covid PROMOTE participant list to use elswhere
+```
+
+
+#outline of what outcomes we are looking for, and what stats we might want for each one
+##PDDS: mean number of scores per prt, how many prts have at least one
+##MSRSR: mean number of scores per prt, how many prts have at least one
+##PROMIS phys: mean number of scores per prt, how many prts have at least one
+##PROMIS cog: mean number of scores per prt, how many prts have at least one
+##PROMIS depression: mean number of scores per prt, how many prts have at least one
+##EDSS: mean number of scores per prt, how many prts have at least one
+##SDMT: mean number of scores per prt, how many prts have at least one
+##9HP: mean number of scores per prt, how many prts have at least one
+##T25W: mean number of scores per prt, how many prts have at least one
+##OCT: mean number of scores per prt, how many prts have at least one
+```{r}
+phys <- read.csv("promis_physical_all.csv")
+cog <- read.csv("promis_cognitive_all.csv")
+depress <- read.csv("promis_depression_all.csv")
+phys
+cog
+depress
+```
+
+#pdds
+```{r}
+pdds_all2 <- read.csv("pdds_all.csv")
+pdds_all <- pdds_all2 %>% 
+  select(-X)
+pdds_all$date <- ymd(pdds_all$date)
+pdds_all
+
+#merging pdds and covid
+berry2 <- merge(covid, pdds_all, by = "id_participant")
+berry <- berry2 %>% 
+  filter(date > test_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n = n_distinct(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, n) %>% 
+  unique()
+berry
+mean(berry$n)
+sd(berry$n)
+
+```
+
+#msrsr
+```{r}
+msrsr2 <- read.csv("msrsr_all.csv")
+msrsr <- msrsr2 %>% 
+  select(id_participant, date, total)
+msrsr$date <- ymd(msrsr$date)
+msrsr
+
+#merging msrsr and covid
+berry2 <- merge(covid, msrsr, by = "id_participant")
+berry <- berry2 %>% 
+  filter(date > test_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n = n_distinct(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, n) %>% 
+  unique()
+berry
+mean(berry$n)
+sd(berry$n)
+```
+
+#promis physical
+```{r}
+promis_p <- phys
+promis_p <- promis_p %>% 
+  select(id_participant, timestamp)
+promis_p$timestamp <- ymd(promis_p$timestamp)
+promis_p <- promis_p %>% 
+  rename(date = timestamp)
+promis_p
+
+#merging promis phys and covid
+berry2 <- merge(covid, promis_p, by = "id_participant")
+berry <- berry2 %>% 
+  filter(date > test_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n = n_distinct(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, n) %>% 
+  unique()
+berry
+mean(berry$n)
+sd(berry$n)
+```
+
+#promis cog
+```{r}
+promis_c <- cog
+promis_c <- promis_c %>% 
+  select(id_participant, timestamp)
+promis_c$timestamp <- ymd(promis_c$timestamp)
+promis_c <- promis_c %>% 
+  rename(date = timestamp)
+promis_c
+
+#merging promis phys and covid
+berry2 <- merge(covid, promis_c, by = "id_participant")
+berry <- berry2 %>% 
+  filter(date > test_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n = n_distinct(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, n) %>% 
+  unique()
+berry
+mean(berry$n)
+sd(berry$n)
+```
+#promis depression
+```{r}
+promis_d <- depress
+promis_d <- promis_d %>% 
+  select(id_participant, timestamp)
+promis_d$timestamp <- ymd(promis_d$timestamp)
+promis_d <- promis_d %>% 
+  rename(date = timestamp)
+promis_d
+
+#merging promis phys and covid
+berry2 <- merge(covid, promis_d, by = "id_participant")
+berry <- berry2 %>% 
+  filter(date > test_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n = n_distinct(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, n) %>% 
+  unique()
+berry
+mean(berry$n)
+sd(berry$n)
+```
+#sdmt
+```{r}
+sdmt2 <- read.csv("sdmt_all.csv")
+sdmt <- sdmt2 %>% 
+  select(-X, -sdmt_percentage) %>% 
+  rename(date = sdmt_date) %>% 
+  rename(score = sdmt_score)
+sdmt$date <- ymd(sdmt$date)
+sdmt
+
+#merging sdmt and covid
+berry2 <- merge(covid, sdmt, by = "id_participant")
+berry <- berry2 %>% 
+  filter(date > test_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n = n_distinct(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, n) %>% 
+  unique()
+berry
+mean(berry$n)
+sd(berry$n)
+```
+
+```{r}
+hpt2 <- read.csv("hpt_all.csv")
+hpt <- hpt2 %>% 
+  select(id_participant, hpt_date) %>% 
+  rename(date = hpt_date)
+hpt$date <- ymd(hpt$date)
+hpt
+
+#merging hpt and covid
+berry2 <- merge(covid, hpt, by = "id_participant")
+berry <- berry2 %>% 
+  filter(date > test_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n = n_distinct(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, n) %>% 
+  unique()
+berry
+mean(berry$n)
+sd(berry$n)
+```
+
+#footwalk
+```{r}
+footwalk2 <- read.csv("footwalk_all.csv")
+footwalk <- footwalk2 %>% 
+  select(id_participant, footwalk_date) %>% 
+  rename(date = footwalk_date)
+footwalk$date <- ymd(footwalk$date)
+footwalk
+
+#merging footwalk and covid
+berry2 <- merge(covid, footwalk, by = "id_participant")
+berry <- berry2 %>% 
+  filter(date > test_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n = n_distinct(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, n) %>% 
+  unique()
+berry
+mean(berry$n)
+sd(berry$n)
+```
+#oct
+```{r}
+oct2 <- read.csv("oct_all.csv")
+oct <- oct2 %>% 
+  select(id_participant, report1_date) %>% 
+  dplyr::rename(date = report1_date)
+oct$date <- ymd(oct$date)
+oct
+
+#merging oct and covid
+berry2 <- merge(covid, oct, by = "id_participant")
+berry <- berry2 %>% 
+  filter(date > test_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n = n_distinct(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, n) %>% 
+  unique()
+berry
+mean(berry$n)
+sd(berry$n)
+```
+
+#edss
+```{r}
+edss1 <- database %>%
+  select(id_participant, edss_date, edss_complete) %>% 
+  filter(edss_complete == 2) %>% 
+  unique() %>% 
+  dplyr::rename(date = edss_date)
+edss1$date <- ymd(edss1$date)
+edss1
+
+#merging oct and covid
+berry2 <- merge(covid, edss1, by = "id_participant")
+berry <- berry2 %>% 
+  filter(date > test_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(n = n_distinct(date)) %>% 
+  ungroup() %>% 
+  select(id_participant, n) %>% 
+  unique()
+berry
+mean(berry$n)
+sd(berry$n)
+```
+
+
+
+
+
+
+
+
