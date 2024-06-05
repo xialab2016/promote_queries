@@ -1,0 +1,248 @@
+---
+title: "Alcohol Query"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library("writexl")
+detach(package:plyr) 
+```
+
+```{r}
+legacy <- read.csv("legacy_pq_sro.csv")
+legacy_pq <- legacy %>% 
+  rename(id_participant_l = redcap_survey_identifier)
+legacy_pq <- legacy_pq %>% 
+  select(id_participant_l, etoh)
+legacy_pq[legacy_pq == ""] <- NA
+legacy_pq <- legacy_pq %>% 
+  drop_na()
+legacy_pq
+```
+
+
+#importing and merging longitudinal data
+```{r}
+long1 <- read.csv("long1.csv")
+long2 <- read.csv("long2.csv")
+all_long <- rbind(long1, long2)
+all_long
+```
+
+#primary questionnaire drinking frequency
+```{r}
+pq_freq1 <- all_long %>% 
+  select(id_participant_l, etoh) %>% 
+  drop_na(etoh)
+pq_freq1
+pq_freq <- rbind(pq_freq1, legacy_pq)
+pq_freq <- pq_freq %>% 
+  drop_na(etoh) %>% 
+  select(id_participant_l) %>% 
+  unique()
+pq_freq
+```
+
+#update questionnaire drinking freq
+```{r}
+uq_freq <- all_long %>% 
+  select(id_participant_l, etoh_6bb639) %>% 
+  drop_na(etoh_6bb639) %>% 
+  select(id_participant_l) %>% 
+  unique()
+uq_freq
+```
+#personal network questionnaire (cut back on alc in last 3 months)
+```{r}
+pnq <- all_long %>% 
+  select(id_participant_l, alcohol) %>% 
+  drop_na(alcohol) %>% 
+  group_by(id_participant_l) %>% 
+  filter(n() > 1) %>% 
+  ungroup() %>% 
+  select(id_participant_l) %>% 
+  unique()
+pnq
+```
+
+#food frequency questionnaire 
+```{r}
+ffq <- all_long %>% 
+  select(id_participant_l, beer_ffq, beerlite_ffq, wwine_ffq, rwine_ffq, liq_ffq)
+ffq
+
+beer <- ffq %>% 
+  select(id_participant_l, beer_ffq) %>% 
+  drop_na(beer_ffq) %>% 
+  select(id_participant_l) %>% 
+  unique()
+beer
+
+beerlite <- ffq %>% 
+  select(id_participant_l, beerlite_ffq) %>% 
+  drop_na(beerlite_ffq) %>% 
+  select(id_participant_l) %>% 
+  unique()
+beerlite
+
+wwine <- ffq %>% 
+  select(id_participant_l, wwine_ffq) %>% 
+  drop_na(wwine_ffq) %>% 
+  select(id_participant_l) %>% 
+  unique()
+wwine
+
+rwine <- ffq %>% 
+  select(id_participant_l, rwine_ffq) %>% 
+  drop_na(rwine_ffq) %>% 
+  select(id_participant_l) %>% 
+  unique()
+rwine
+
+liq <- ffq %>% 
+  select(id_participant_l, liq_ffq) %>% 
+  drop_na(liq_ffq) %>% 
+  select(id_participant_l) %>% 
+  unique()
+liq
+```
+
+```{r}
+mix <- rbind(pq_freq, uq_freq)
+mix2 <- rbind(mix, pnq)
+mix3 <- rbind(mix2, beer)
+mix4 <- rbind(mix3, beerlite)
+mix5 <- rbind(mix4, wwine)
+mix6 <- rbind(mix5, rwine)
+mix7 <- rbind(mix6, liq)
+mix_final <- mix7 %>% unique()
+mix_final
+
+write_xlsx(mix_final,"alcohol_participants_unique.xlsx")
+```
+
+#PHASE 2
+
+```{r}
+database <- read.csv("database.csv")
+database
+```
+
+#extracting all pdds data (wide format)
+```{r}
+pdds <- database %>% 
+  select(id_participant, dob, pdds_number, pdds_date_1, pdds_value_1, pdds_date_2, pdds_value_2, pdds_date_3, pdds_value_3, pdds_date_4, pdds_value_4, pdds_date_5, pdds_value_5, pdds_date_6, pdds_value_6, pdds_date_7, pdds_value_7, pdds_date_8, pdds_value_8, pdds_date_9, pdds_value_9, pdds_date_10, pdds_value_10, pdds_date_11, pdds_value_11, pdds_date_12, pdds_value_12, pdds_date_13, pdds_value_13, pdds_date_14, pdds_value_14, pdds_date_15, pdds_value_15, pdds_date_16, pdds_value_16, pdds_date_17, pdds_value_17, pdds_date_18, pdds_value_18, pdds_date_19, pdds_value_19, pdds_date_20, pdds_value_20)
+pdds[pdds == ""] <- NA
+pdds <- pdds %>% 
+  drop_na(dob)
+pdds
+```
+
+#all pdds dates and score long format
+```{r}
+pdds_tidy <- pdds %>% dplyr::rename(date_1 = pdds_date_1, date_2 = pdds_date_2, date_3 = pdds_date_3, date_4 = pdds_date_4, date_5 = pdds_date_5, date_6 = pdds_date_6, date_7 = pdds_date_7, date_8 = pdds_date_8, date_9 = pdds_date_9, date_10 = pdds_date_10, date_11 = pdds_date_11, date_12 = pdds_date_12, date_13 = pdds_date_13, date_14 = pdds_date_14, date_15 = pdds_date_15, date_16 = pdds_date_16, date_17 = pdds_date_17, date_18 = pdds_date_18, date_19 = pdds_date_19, date_20 = pdds_date_20) %>% select(-pdds_number)
+pdds_tidy <- pdds_tidy %>% dplyr::rename(value_1 = pdds_value_1, value_2 = pdds_value_2, value_3 = pdds_value_3, value_4 = pdds_value_4, value_5 = pdds_value_5, value_6 = pdds_value_6, value_7 = pdds_value_7, value_8 = pdds_value_8, value_9 = pdds_value_9, value_10 = pdds_value_10, value_11 = pdds_value_11, value_12 = pdds_value_12, value_13 = pdds_value_13, value_14 = pdds_value_14, value_15 = pdds_value_15, value_16 = pdds_value_16, value_17 = pdds_value_17, value_18 = pdds_value_18, value_19 = pdds_value_19, value_20 = pdds_value_20) 
+pdds_dates <- pdds_tidy %>% select(id_participant, date_1, date_2, date_3, date_4, date_5, date_6, date_7, date_8, date_9, date_10, date_11, date_12, date_13, date_14, date_15, date_16, date_17, date_18, date_19, date_20)
+pdds_dates <- pdds_dates %>% pivot_longer(
+  cols = -id_participant,
+  names_to = c("value_type", "input_number"),
+  names_sep = "_",
+  values_to = "date")
+pdds_dates 
+pdds_scores <- pdds_tidy %>% select(id_participant, value_1, value_2, value_3, value_4, value_5, value_6, value_7, value_8, value_9, value_10, value_11, value_12, value_13, value_14, value_15, value_16, value_17, value_18, value_19, value_20) 
+pdds_scores <- pdds_scores %>% pivot_longer(
+  cols = -id_participant,
+  names_to = c("value_type", "input_number"),
+  names_sep = "_",
+  values_to = "score")
+pdds_scores <- pdds_scores %>% select(-value_type)
+pdds_dates <- pdds_dates %>% select(-value_type)
+pdds_scores
+pdds_scores_dates <- merge(x=pdds_dates, y=pdds_scores, by = c("id_participant", "input_number")) %>% drop_na(score)
+pdds_scores_dates$date <- ymd(pdds_scores_dates$date)
+pdds_scores_dates <- pdds_scores_dates %>% drop_na(date)
+pdds_scores_dates
+```
+
+#merging alc participants and pdds information to find all participants who have at least 1 PDDS score and at least 1 piece of alcohol information
+```{r}
+sub_group <- database %>% 
+  select(id_participant, dx_group_main) %>% 
+  drop_na() %>% 
+  unique()
+pdds_scores_dates_l <- pdds_scores_dates %>% 
+  rename(id_participant_l = id_participant)
+pdds_scores_dates_l
+alc_pdds <- merge(mix_final, pdds_scores_dates_l, by = "id_participant_l")
+unq_alc_pdds <- alc_pdds %>% 
+  select(id_participant_l) %>% 
+  rename(id_participant = id_participant_l) %>% 
+  unique()
+unq_alc_pdds_sub <- merge(unq_alc_pdds, sub_group)
+unq_alc_pdds_sub
+
+#now finding subject groups for those participants
+ms <- unq_alc_pdds_sub %>% 
+  filter(dx_group_main == 2) %>% 
+  unique()
+
+nmo <- unq_alc_pdds_sub %>% 
+  filter(dx_group_main == 5) %>% 
+  unique()
+
+mog <- unq_alc_pdds_sub %>% 
+  filter(dx_group_main == 3) %>% 
+  unique()
+
+control <- unq_alc_pdds_sub %>% 
+  filter(dx_group_main == 1) %>% 
+  unique()
+
+ms
+nmo
+mog
+control
+```
+
+
+
+```{r}
+#exporting individual lists of participants with alcohol data and at least one PDDS score by subject group
+write.csv(ms, "alc_pdds_ms.csv")
+write.csv(nmo, "alc_pdds_nmo.csv")
+write.csv(mog, "alc_pdds_mog.csv")
+write.csv(control, "alc_pdds_control.csv")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
