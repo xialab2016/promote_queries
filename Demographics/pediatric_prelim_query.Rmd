@@ -1,0 +1,187 @@
+---
+title: "Pediatric prelim query"
+output: html_document
+date: "2024-02-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+database <- read.csv("database.csv")
+database[database == ""] <- NA
+database
+```
+
+
+```{r}
+miss <- database %>% 
+  select(id_participant, date_firstsx, date_msdx, dob, dx_group_main) %>% 
+  drop_na(dob) %>% 
+  unique() %>%
+  filter(dx_group_main == 2) %>% #toggle this to choose subject group
+  filter(is.na(date_msdx)) %>% #toggle this to assess missingness 
+  select(id_participant) %>% 
+  unique()
+miss
+#write.csv(miss, "missing_msdx_msonly.csv")
+```
+
+```{r}
+long1 <- read.csv("long1.csv")
+long2 <- read.csv("long2.csv")
+long <- rbind(long1, long2)
+long[long == ""] <- NA
+```
+
+```{r}
+longly <- long %>% 
+  select(id_participant_l, doe) %>% #this chunk is just to generate date of enrollment for each prt
+  drop_na(doe) %>% 
+  unique() %>% 
+  dplyr::rename(id_participant = id_participant_l)
+longly$doe <- ymd(longly$doe)
+longly
+```
+
+```{r}
+library(ggplot2)
+tiff <- merge(miss, longly, by = "id_participant")
+tiff
+
+tiff %>% ggplot(aes(x = doe)) +
+  geom_histogram(bins = 100)
+```
+
+
+
+```{r}
+database$dob <- ymd(database$dob)
+database$date_msdx <- ymd(database$date_msdx)
+database$date_firstsx <- ymd(database$date_firstsx)
+```
+
+```{r}
+prts <- database %>% #making participant list with all necessary columns, formatted correctly
+  select(id_participant, dob, age_firstsx, date_firstsx, date_msdx, dx_group_main) %>% 
+  filter(dx_group_main == 2 | dx_group_main == 3 | dx_group_main == 5) %>% #pulling for MS, NMO, MOG
+  unique()
+prts
+```
+
+
+```{r}
+adding <- prts %>% #adding a manual column for age at date of first symptom
+  mutate(time_int = interval(dob, date_firstsx)) %>% 
+  mutate(age_manual_sx = time_length(time_int, "month")) %>% 
+  mutate(age_man_sx_yr = age_manual_sx/12) %>% 
+  select(-time_int, -age_manual_sx) %>% 
+  mutate(time_int = interval(dob, date_msdx)) %>% 
+  mutate(age_msdx_mo = time_length(time_int, "month")) %>%  #adding age at time of msdx
+  mutate(age_msdx_yr = age_msdx_mo/12) %>% 
+  select(-time_int, -age_msdx_mo) %>% 
+  unique()
+adding
+```
+
+#crit 1
+```{r}
+#using redcap age_firstsx
+under18 <- adding %>% 
+  filter(age_firstsx < 18 & age_msdx_yr < 18)
+under18
+
+#using my age_man_sx_yr
+under_18 <- adding %>% 
+  filter(age_man_sx_yr < 18 & age_msdx_yr < 18)
+under_18
+```
+
+#crit 2
+```{r}
+#using redcap age_firstsx
+under_or18 <- adding %>% 
+  filter(age_firstsx <= 18 & age_msdx_yr <= 18)
+under_or18
+
+#using my age_man_sx_yr
+under_or_18 <- adding %>% 
+  filter(age_man_sx_yr <= 18 & age_msdx_yr <= 18)
+under_or_18
+```
+
+#crit 3
+```{r}
+#using redcap age_firstsx
+under21 <- adding %>% 
+  filter(age_firstsx < 21 & age_msdx_yr < 21)
+under21
+
+#using my age_man_sx_yr
+under_21 <- adding %>% 
+  filter(age_man_sx_yr < 21 & age_msdx_yr < 21)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
