@@ -1,0 +1,483 @@
+---
+title: "OCT pulling query"
+output: html_document
+date: "2023-10-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+#This query was sent to me by Chen
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+library(dplyr)
+library(reshape)
+library(stringr)
+data=read.csv("database.csv")
+DATA=read.csv("database.csv")
+```
+
+
+```{r}
+#trying to make a DATA file that is right
+names=colnames(data)[grepl("oct",colnames(data)) == T]
+feature=names[6:19]
+data=DATA[,c("id_participant","report1_date",feature)]
+data=data %>% mutate(report1_date=as.Date(report1_date),
+                       oct_n=1) %>%
+  filter(is.na(report1_date)==F)
+summary(data$report1_date)
+data$report1_date[which(data$report1_date=="1015-08-24")]="2015-08-24"
+data$report1_date[which(data$report1_date=="1026-09-22")]="2016-09-22"
+dim(data)
+oct=data
+data=DATA[,c("id_participant","report1_date",feature)]
+colnames(data)=c("id_participant","report1_date",feature)
+data=data %>% mutate(report1_date=as.Date(report1_date),
+                       oct_n=2) %>%
+  filter(is.na(report1_date)==F)
+summary(data$report1_date)
+dim(data)
+oct=rbind(oct, data)
+for (i in 3:22){
+  data=DATA[,c("id_participant",paste0("report1_date_",i),paste0(feature,"_",i))]
+  colnames(data)=c("id_participant","report1_date",feature)
+  data=data %>% mutate(report1_date=as.Date(report1_date),
+                       oct_n=i) %>%
+    filter(is.na(report1_date)==F)
+  print( summary(data$report1_date))
+  print( dim(data))
+  oct=rbind(oct, data)
+}
+table(oct$oct_n)
+oct=oct %>% arrange(id_participant,report1_date)
+oct=oct[,c(1,2,17,3:16)]
+oct=oct %>% mutate(rnfl_left_oct=ifelse(rnfl_left_oct==9999, NA, rnfl_left_oct),
+                   rnfl_right_oct=ifelse(rnfl_right_oct==9999, NA, rnfl_right_oct),
+                   macular_left_oct=ifelse(macular_left_oct==9999, NA, macular_left_oct),
+                   macular_right_oct=ifelse(macular_right_oct==9999, NA, macular_right_oct),
+                   mac_thickness_left_oct=ifelse(mac_thickness_left_oct==9999, NA, mac_thickness_left_oct),
+                   mac_thickness_right_oct=ifelse(mac_thickness_right_oct==9999, NA, mac_thickness_right_oct),
+                   min_gcl_left_oct=ifelse(min_gcl_left_oct==9999, NA, min_gcl_left_oct),
+                   min_gcl_right_oct=ifelse(min_gcl_right_oct==9999, NA, min_gcl_right_oct),
+                   average_gcl_left_oct=ifelse(average_gcl_left_oct==9999, NA, average_gcl_left_oct),
+                   average_gcl_right_oct=ifelse(average_gcl_right_oct==9999, NA, average_gcl_right_oct),
+                   maximum_gcl_left_oct=ifelse(maximum_gcl_left_oct==9999, NA, maximum_gcl_left_oct),
+                   maximum_gcl_right_oct=ifelse(maximum_gcl_right_oct==9999, NA, maximum_gcl_right_oct) )
+```
+
+```{r}
+write.csv(oct, "oct_all.csv")
+```
+
+```{r}
+bmi_prt_list2 <- read.csv("all_repop.csv")
+bmi_prt_list <- bmi_prt_list2 %>% 
+  select(id_participant, outcome_date_start) %>% 
+  unique()
+bmi_prt_list$outcome_date_start <- ymd(bmi_prt_list$outcome_date_start)
+bmi_prt_list <- bmi_prt_list %>% 
+  mutate(today = Sys.Date()) %>% 
+  filter(outcome_date_start < today) %>% #getting rid of participants who have outcome_date_start in future
+  select(id_participant, outcome_date_start) %>% 
+  unique()
+bmi_prt_list
+```
+
+#now filtering to keep only scores in oct.csv that are for participants in the bmi study and also the report_date is after outcome_date_start
+```{r}
+lilac2 <- merge(oct, bmi_prt_list, by = "id_participant")
+lilac <- lilac2
+lilac$outcome_date_start <- ymd(lilac$outcome_date_start)
+lilac <- lilac %>% 
+  #select(-X) %>% 
+  filter(outcome_date_start <= report1_date) %>% 
+  unique() %>% 
+  select(-outcome_date_start)
+lilac
+```
+#now writing the file to export and load into oct_bmi_bcell where the GEE code from Chen starts
+```{r}
+write.csv(lilac, "oct_bmi.csv")
+```
+
+
+#don't need to run below here
+```{r}
+names=colnames(DATA)[grepl("oct",colnames(DATA))==T]
+feature=names[6:19]
+data=DATA[,c("id_participant","report1_date",feature)]
+data=data %>% mutate(report1_date=as.Date(report1_date),
+                       oct_n=1) %>%
+  filter(is.na(report1_date)==F)
+summary(data$report1_date)
+data$report1_date[which(data$report1_date=="1015-08-24")]="2015-08-24"
+data$report1_date[which(data$report1_date=="1026-09-22")]="2016-09-22"
+dim(data)
+oct=data
+data=DATA[,c("id_participant",paste0("report1_date_",2),paste0(feature,"_2"))]
+colnames(data)=c("id_participant","report1_date",feature)
+data=data %>% mutate(report1_date=as.Date(report1_date),
+                       oct_n=2) %>%
+  filter(is.na(report1_date)==F)
+summary(data$report1_date)
+dim(data)
+oct=rbind(oct, data)
+for (i in 3:22){
+  data=DATA[,c("id_participant",paste0("report1_date_",i),paste0(feature,"_",i))]
+  colnames(data)=c("id_participant","report1_date",feature)
+  data=data %>% mutate(report1_date=as.Date(report1_date),
+                       oct_n=i) %>%
+    filter(is.na(report1_date)==F)
+  print( summary(data$report1_date))
+  print( dim(data))
+  oct=rbind(oct, data)
+}
+table(oct$oct_n)
+oct=oct %>% arrange(id_participant,report1_date)
+oct=oct[,c(1,2,17,3:16)]
+oct=oct %>% mutate(rnfl_left_oct=ifelse(rnfl_left_oct==9999, NA, rnfl_left_oct),
+                   rnfl_right_oct=ifelse(rnfl_right_oct==9999, NA, rnfl_right_oct),
+                   macular_left_oct=ifelse(macular_left_oct==9999, NA, macular_left_oct),
+                   macular_right_oct=ifelse(macular_right_oct==9999, NA, macular_right_oct),
+                   mac_thickness_left_oct=ifelse(mac_thickness_left_oct==9999, NA, mac_thickness_left_oct),
+                   mac_thickness_right_oct=ifelse(mac_thickness_right_oct==9999, NA, mac_thickness_right_oct),
+                   min_gcl_left_oct=ifelse(min_gcl_left_oct==9999, NA, min_gcl_left_oct),
+                   min_gcl_right_oct=ifelse(min_gcl_right_oct==9999, NA, min_gcl_right_oct),
+                   average_gcl_left_oct=ifelse(average_gcl_left_oct==9999, NA, average_gcl_left_oct),
+                   average_gcl_right_oct=ifelse(average_gcl_right_oct==9999, NA, average_gcl_right_oct),
+                   maximum_gcl_left_oct=ifelse(maximum_gcl_left_oct==9999, NA, maximum_gcl_left_oct),
+                   maximum_gcl_right_oct=ifelse(maximum_gcl_right_oct==9999, NA, maximum_gcl_right_oct) )
+write.csv(oct, "oct.csv",row.names = F)
+```
+```{r}
+write.csv(oct, "oct.csv")
+```
+
+
+
+
+
+```{r}
+#### Basic information(nrow=3200,n_id=3200) ####
+data=data[,1:134]
+dim(data)
+n_miss=apply(data[,3:134], MARGIN=1, FUN=function(x) {sum(is.na(x))+sum(x=="",na.rm = T)})
+table(n_miss)
+data=data[n_miss!=132,]
+dim(data); length(unique(data$id_participant))
+tmp=data %>% group_by(id_participant)%>% summarise(n=n())
+#i=tmp$id_participant[tmp$n>1] 
+#i#all 9 ppts are arm2
+#i=which(data$id_participant %in% i == T & data$redcap_event_name=="consent_initial_vi_arm_1")
+#data=data[-i,]
+dim(data); length(unique(data$id_participant)) ####3285ppts
+data$dob=as.Date(data$dob)
+data$date_firstsx=as.Date(data$date_firstsx)
+data$date_msdx=as.Date(data$date_msdx)
+data$dmt_start_date=as.Date(data$dmt_start_date)
+#write.csv(data, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817/BasicInformation.csv",row.names = F)
+
+
+#### Primary and self-reported questionnaire ####
+##### nrow=731, n_id=731, 731 ppts were sent primary questionnairre or self-reported #####
+data=DATA[, c(1,2,154:159)]
+n_miss=apply(data[,3:8], MARGIN=1, FUN=function(x) {sum(is.na(x))+sum(x=="",na.rm = T)})
+table(n_miss)
+data=data[n_miss!=6,]
+dim(data); length(unique(data$id_participant))
+data=data %>% filter(pq1_sent!="" | sro1_sent!="")
+dim(data); length(unique(data$id_participant))
+write.csv(data, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230530/Primary_Self_Reported_Questionnaire.csv",row.names = F)
+
+#### Blood sample ####
+##### nrow=2702, n_id=1677, 1677 ppts had >=1 blood draw ####
+DATA=read.csv("~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Raw_20230817/PROMOTEDatabase_DATA_2023-08-17_1144.csv")
+
+data=DATA[,c(1,2,160:271)]
+data<- data %>% filter( blood1_date!="")
+n_miss=apply(data[,3:114], MARGIN=1, FUN=function(x) {sum(is.na(x))+sum(x=="",na.rm = T)})
+table(n_miss)
+dim(data); length(unique(data$id_participant))
+write.csv(data, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817/BloodSample.csv",row.names = F)
+
+#### Stool sample ####
+##### nrow=385, n_id=251, 251 ppts had >=1 stool collection ####
+data=DATA[,c(1,2,272:331)]
+data<- data %>% filter( stool1_screening!="")
+dim(data); length(unique(data$id_participant))
+write.csv(data, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817/StoolSample.csv",row.names = F)
+#### CSF sample ####
+##### nrow=167, n_id=166, 166 ppts had >=1 CSF sample ####
+data=DATA[,c(1,2,436:458)]
+data<- data %>% filter( csf_date!="")
+dim(data); length(unique(data$id_participant))
+write.csv(data, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817/CSFSample.csv",row.names = F)
+#### DNA sample ####
+##### nrow=262, n_id=262, 262 ppts had DNA sample ####
+data=DATA[,c(1,2,492:496)]
+data<- data %>% filter( dna_date_collected!="")
+dim(data); length(unique(data$id_participant))
+write.csv(data, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817//DNASample.csv",row.names = F)
+
+#### Functional test ####
+#### nrow=1116, n_id=738, 738 ppts had >=1 tests ####
+data=DATA[,c(1,2,497:559)]
+data<- data %>% filter( sdmt_date!="" |pasat_date!=""| hpt_date!=""| footwalk_date!=""|tug_date!=""|visual_acuity_date!=""|mri_current!="")
+dim(data); length(unique(data$id_participant))
+write.csv(data, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817/FunctionalTest.csv",row.names = F)
+
+#### EDSS ####
+#### nrow=504, n_id=399, 399 ppts had EDSS or ambulatory table  ####
+data=DATA[,c(1,2,560:576)]
+data<- data %>% filter( edss_date!=""|ambulatory_table_date!="")
+dim(data); length(unique(data$id_participant))
+write.csv(data, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817//EDSS.csv",row.names = F)
+#### Relapse History before initial consent day####
+#### 507 ppts had data on relapse history ####
+data=DATA[,c(1,2,668:749)]
+data=data %>% filter(!is.na(relapse_number))
+name1=colnames(data)[grepl("date",colnames(data))==T]
+name2=colnames(data)[grepl("type",colnames(data))==T ]
+data1=data%>% dplyr::select(c(id_participant,redcap_event_name,relapse_number,any_of(name1)))
+data2=data%>% dplyr::select(c(id_participant,redcap_event_name,relapse_number,any_of(name2)))
+long1=melt(data1,id.vars = c("id_participant","redcap_event_name","relapse_number"))
+long1=long1%>% arrange(id_participant) 
+long1=long1[,-4]
+colnames(long1)[4]="relapse_date"
+long2=melt(data2,id.vars = c("id_participant","redcap_event_name","relapse_number"))
+long2=long2%>% arrange(id_participant)
+long2=long2[,-4]
+colnames(long2)[4]="relapse_type"
+long=long1
+long$relapse_type=long2$relapse_type
+long=long %>%  group_by(id_participant)%>% mutate(n=1:length(id_participant)) %>% arrange(id_participant) 
+long=long %>% filter(n<= relapse_number)
+dim(long); length(unique(long$id_participant))
+write.csv(long, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817/RelapseHistory.csv",row.names = F)
+#### DMT History before initial consent day####
+####  400 ppts had data on DMT history ####
+data=DATA[,c(1,2,750:791)]
+data=data %>% filter(!is.na(dmt_number))
+table(data$redcap_event_name,useNA = "ifany")
+data1=data[,c(1,2,3,seq(4,40,4))]
+long1=melt(data1,id.vars = c("id_participant","redcap_event_name","dmt_number"))
+long1=long1[,-4]
+colnames(long1)[4]="DMT"
+data2=data[,c(1,2,3,seq(5,41,4))]
+long2=melt(data2,id.vars = c("id_participant","redcap_event_name","dmt_number"))
+long2=long2[,-4]
+colnames(long2)[4]="DMT_start"
+data3=data[,c(1,2,3,seq(6,42,4))]
+long3=melt(data3,id.vars = c("id_participant","redcap_event_name","dmt_number"))
+long3=long3[,-4]
+colnames(long3)[4]="DMT_end"
+data4=data[,c(1,2,3,seq(7,43,4))]
+long4=melt(data4,id.vars = c("id_participant","redcap_event_name","dmt_number"))
+long4=long4[,-4]
+colnames(long4)[4]="DMT_other"
+
+long=long1
+long$DMT_start=long2$DMT_start; long$DMT_end=long3$DMT_end;long$DMT_other=long4$DMT_other
+long=long%>% arrange(id_participant)
+long=long %>%  group_by(id_participant)%>% mutate(DMT_n=1:length(id_participant)) 
+long=long[,c(1,2,3,8,4,5,6,7)]
+dim(long); length(unique(long$id_participant))
+write.csv(long, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817//DMTHistory.csv",row.names = F)
+
+#### PDDS History before initial consent day####
+#### nrow=8912, n_id=1500, 1500 ppt had data of PDDS history ####
+data=DATA[,c(1,2,792:833)]
+data=data %>% filter(!is.na(pdds_number))
+table(data$redcap_event_name,useNA = "ifany")
+name1=colnames(data)[grepl("date",colnames(data))==T][1:20]
+name2=colnames(data)[grepl("value",colnames(data))==T ]
+data1=data %>% dplyr::select(c(id_participant,redcap_event_name,pdds_number,any_of(name1)))
+long1=melt(data1,id.vars = c("id_participant","redcap_event_name","pdds_number"))
+long1=long1[,-4]
+colnames(long1)[4]="pdds_date"
+data2=data %>% dplyr::select(c(id_participant,redcap_event_name,pdds_number,any_of(name2)))
+long2=melt(data2,id.vars = c("id_participant","redcap_event_name","pdds_number"))
+long2=long2[,-4]
+colnames(long2)[4]="PDDS"
+long=long1
+long$PDDS=long2$PDDS
+long=long%>% arrange(id_participant)
+long=long %>%  group_by(id_participant)%>% mutate(PDDS_n=1:length(id_participant)) 
+long=long[,c(1,2,3,6,4,5)]
+long=long %>% filter(PDDS_n<=pdds_number)
+dim(long); length(unique(long$id_participant))
+write.csv(long, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817//PDDSHistory.csv",row.names = F)
+
+#### MSRSR historry ####
+#### nrow=7389, n_id=1320, 1320 ppt had data of MSRSR history ####
+data=DATA[,c(1,2,834:1015)]
+data=data %>% filter(!is.na(msrsr_number))
+table(data$redcap_event_name,useNA = "ifany")
+data1=data [,c(1,2,4,seq(5,176,9))]
+long1=melt(data1,id.vars = c("id_participant","redcap_event_name","msrsr_number"))
+long1=long1[,-4]
+colnames(long1)[4]="msrsr_date"
+data2=data [,c(1,2,4,seq(6,177,9))]
+long2=melt(data2,id.vars = c("id_participant","redcap_event_name","msrsr_number"))
+long2=long2[,-4]
+colnames(long2)[4]="msrsr_walking"
+data3=data [,c(1,2,4,seq(7,178,9))]
+long3=melt(data3,id.vars = c("id_participant","redcap_event_name","msrsr_number"))
+long3=long3[,-4]
+colnames(long3)[4]="msrsr_arms"
+data4=data [,c(1,2,4,seq(8,179,9))]
+long4=melt(data4,id.vars = c("id_participant","redcap_event_name","msrsr_number"))
+long4=long4[,-4]
+colnames(long4)[4]="msrsr_vision"
+data5=data [,c(1,2,4,seq(9,180,9))]
+long5=melt(data5,id.vars = c("id_participant","redcap_event_name","msrsr_number"))
+long5=long5[,-4]
+colnames(long5)[4]="msrsr_speech"
+data6=data [,c(1,2,4,seq(10,181,9))]
+long6=melt(data6,id.vars = c("id_participant","redcap_event_name","msrsr_number"))
+long6=long6[,-4]
+colnames(long6)[4]="msrsr_swallow"
+data7=data [,c(1,2,4,seq(11,182,9))]
+long7=melt(data7,id.vars = c("id_participant","redcap_event_name","msrsr_number"))
+long7=long7[,-4]
+colnames(long7)[4]="msrsr_cognition"
+data8=data [,c(1,2,4,seq(12,183,9))]
+long8=melt(data8,id.vars = c("id_participant","redcap_event_name","msrsr_number"))
+long8=long8[,-4]
+colnames(long8)[4]="msrsr_sensation"
+data9=data [,c(1,2,4,seq(13,184,9))]
+long9=melt(data9,id.vars = c("id_participant","redcap_event_name","msrsr_number"))
+long9=long9[,-4]
+colnames(long9)[4]="msrsr_controlling"
+long=long1
+long$msrsr_walking=long2$msrsr_walking;long$msrsr_arms=long3$msrsr_arms
+long$msrsr_vision=long4$msrsr_vision;long$msrsr_speech=long5$msrsr_speech
+long$msrsr_swallow=long6$msrsr_swallow;long$msrsr_cognitiion=long7$msrsr_cognition
+long$msrsr_sensatiion=long8$msrsr_sensation;long$msrsr_controlling=long9$msrsr_controlling
+long=long%>% arrange(id_participant)
+long=long %>%  group_by(id_participant)%>% mutate(MSRSR_n=1:length(id_participant)) 
+long=long[,c(1,2,3,13,4:12)]
+long=long %>% filter(MSRSR_n<=msrsr_number)
+dim(long); length(unique(long$id_participant))
+write.csv(long, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817//MSRSRHistory.csv",row.names = F)
+
+
+###PROMISE###
+data=read.csv("~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Raw_20230817/PROMOTELongitudinalQ_DATA_2023-08-17_1210.csv")
+names=colnames(data)[str_starts(colnames(data),"promis")==T]
+which(grepl("promis_bank",names)==T)
+pa_name=names[1:488]
+cog_name=names[489:620]
+dep_name=names[621:736]
+
+physical=data %>% dplyr::select(id_participant_l, any_of(pa_name)) 
+physical=physical %>% dplyr::select(id_participant_l,promis_bank_v12_physical_function_timestamp,promis_tscore,promis_std_error)
+physical=physical %>% filter(is.na(promis_tscore)==F)
+length(unique(physical$id_participant_l))
+colnames(physical)[1:2]=c("id_participant","promis_physical_function_date")
+physical$promis_physical_function_date=as.Date(physical$promis_physical_function_date)
+physical=physical %>% arrange(id_participant,promis_physical_function_date)
+write.csv(physical, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817/promis_physical_function.csv",row.names = F)
+
+cog=data %>% dplyr::select(id_participant_l, any_of(cog_name)) 
+cog=cog %>% dplyr::select(id_participant_l,promis_bank_v20_cognitive_function_timestamp,promis_bank_v20_cognitive_function_tscore,promis_bank_v20_cognitive_function_std_error)
+cog=cog %>% filter(is.na(promis_bank_v20_cognitive_function_tscore)==F)
+length(unique(cog$id_participant_l))
+colnames(cog)[1:2]=c("id_participant","promis_cognition_date")
+cog$promis_cognition_date=as.Date(cog$promis_cognition_date)
+cog=cog %>% arrange(id_participant,promis_cognition_date)
+write.csv(cog, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817//promis_cognitionn.csv",row.names = F)
+
+dep=data %>% dplyr::select(id_participant_l, any_of(dep_name)) 
+dep=dep %>% dplyr::select(id_participant_l,promis_bank_v10_depression_timestamp,promis_bank_v10_depression_tscore,promis_bank_v10_depression_std_error)
+dep=dep %>% filter(is.na(promis_bank_v10_depression_tscore)==F)
+length(unique(dep$id_participant_l))
+colnames(dep)[1:2]=c("id_participant","promis_depression_date")
+dep$promis_depression_date=as.Date(dep$promis_depression_date)
+dep=dep %>% arrange(id_participant,promis_depression_date)
+write.csv(dep, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817/promis_depression.csv",row.names = F)
+
+
+### OCT ####
+names=colnames(DATA)[grepl("oct",colnames(DATA))==T]
+feature=names[6:19]
+data=DATA[,c("id_participant","report1_date",feature)]
+data=data %>% mutate(report1_date=as.Date(report1_date),
+                       oct_n=1) %>%
+  filter(is.na(report1_date)==F)
+summary(data$report1_date)
+data$report1_date[which(data$report1_date=="1015-08-24")]="2015-08-24"
+data$report1_date[which(data$report1_date=="1026-09-22")]="2016-09-22"
+dim(data)
+oct=data
+data=DATA[,c("id_participant",paste0("report1_date_",2),paste0(feature,"_2"))]
+colnames(data)=c("id_participant","report1_date",feature)
+data=data %>% mutate(report1_date=as.Date(report1_date),
+                       oct_n=2) %>%
+  filter(is.na(report1_date)==F)
+summary(data$report1_date)
+dim(data)
+oct=rbind(oct, data)
+for (i in 3:22){
+  data=DATA[,c("id_participant",paste0("report1_date_",i),paste0(feature,"_",i))]
+  colnames(data)=c("id_participant","report1_date",feature)
+  data=data %>% mutate(report1_date=as.Date(report1_date),
+                       oct_n=i) %>%
+    filter(is.na(report1_date)==F)
+  print( summary(data$report1_date))
+  print( dim(data))
+  oct=rbind(oct, data)
+}
+table(oct$oct_n)
+oct=oct %>% arrange(id_participant,report1_date)
+oct=oct[,c(1,2,17,3:16)]
+oct=oct %>% mutate(rnfl_left_oct=ifelse(rnfl_left_oct==9999, NA, rnfl_left_oct),
+                   rnfl_right_oct=ifelse(rnfl_right_oct==9999, NA, rnfl_right_oct),
+                   macular_left_oct=ifelse(macular_left_oct==9999, NA, macular_left_oct),
+                   macular_right_oct=ifelse(macular_right_oct==9999, NA, macular_right_oct),
+                   mac_thickness_left_oct=ifelse(mac_thickness_left_oct==9999, NA, mac_thickness_left_oct),
+                   mac_thickness_right_oct=ifelse(mac_thickness_right_oct==9999, NA, mac_thickness_right_oct),
+                   min_gcl_left_oct=ifelse(min_gcl_left_oct==9999, NA, min_gcl_left_oct),
+                   min_gcl_right_oct=ifelse(min_gcl_right_oct==9999, NA, min_gcl_right_oct),
+                   average_gcl_left_oct=ifelse(average_gcl_left_oct==9999, NA, average_gcl_left_oct),
+                   average_gcl_right_oct=ifelse(average_gcl_right_oct==9999, NA, average_gcl_right_oct),
+                   maximum_gcl_left_oct=ifelse(maximum_gcl_left_oct==9999, NA, maximum_gcl_left_oct),
+                   maximum_gcl_right_oct=ifelse(maximum_gcl_right_oct==9999, NA, maximum_gcl_right_oct) )
+write.csv(oct, "~/OneDrive - University of Pittsburgh/XiaLab/PROMOTEDATA/Clean_20230817//oct.csv",row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
