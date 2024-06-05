@@ -1,0 +1,162 @@
+---
+title: "ffq summary statistics"
+output: html_document
+date: "2023-11-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+
+
+```{r}
+library(dplyr)
+library(tidyverse)
+database <- read.csv("database.csv")
+database[database == ""] <- NA
+database
+```
+
+
+```{r}
+long1 <- read.csv("long1.csv") 
+long2 <- read.csv("long2.csv") 
+long <- rbind(long1, long2) 
+long
+```
+
+```{r}
+clin_dems <- database %>% 
+  select(id_participant, dx_group_main, subtype_enroll, dx_other_group) %>% 
+  arrange(id_participant) %>% 
+  group_by(id_participant) %>% 
+  slice(1) %>% #keeping the first row per participant to get rid of NA values (but can't just use drop_na because people with related disorders would then be excluded)
+  ungroup() %>% 
+  unique()
+clin_dems
+
+ffq_comp <- long %>% 
+  select(id_participant_l, food_frequency_complete, food_frequency_timestamp) %>% 
+  rename(id_participant = id_participant_l) %>% 
+  filter(food_frequency_complete == 2) %>% 
+  unique() %>% 
+  group_by(id_participant) %>% 
+  mutate(n_ffq = n_distinct(food_frequency_timestamp)) %>% 
+  ungroup()
+ffq_comp
+```
+
+```{r}
+ffq_dem <- merge(ffq_comp, clin_dems, by = "id_participant")
+
+#this is just checking how many MS participants have completed
+ffq_dem %>% select(id_participant, dx_group_main, subtype_enroll) %>% unique() %>% filter(dx_group_main == 2)
+```
+
+
+```{r}
+look <- ffq_dem %>% 
+  select(id_participant, n_ffq) %>% 
+  unique()
+sum(look$n_ffq)
+```
+
+
+ 
+#importing prebiotic ffq data
+```{r}
+prepro2 <- read.csv("prepro.csv") #this file can be found in shared OneDrive -> Data Analysis -> Data Queries -> Relevant CSV Files
+prepro4 <- prepro2 %>% 
+  select(record_id, promote_id, food_frequency_complete, food_frequency_timestamp, food_frequency_followup_complete, food_frequency_followup_timestamp)
+prepro4[prepro4 == ""] <- NA
+prepro3 <- prepro4 %>% 
+  group_by(record_id) %>% 
+  fill(promote_id, food_frequency_complete, food_frequency_timestamp, food_frequency_followup_complete, food_frequency_followup_timestamp) %>% 
+  ungroup()
+prepro <- prepro3 %>% 
+  select(record_id, promote_id, food_frequency_complete, food_frequency_timestamp, food_frequency_followup_complete, food_frequency_followup_timestamp) %>% 
+  rename(id_participant = promote_id)
+prepro_first <- prepro %>% 
+  filter(food_frequency_complete == 2) %>% 
+  select(id_participant, food_frequency_complete, food_frequency_timestamp) %>% 
+  unique()
+prepro_first
+prepro_second <- prepro %>% 
+  filter(food_frequency_followup_complete == 2) %>% 
+  select(id_participant, food_frequency_followup_complete, food_frequency_followup_timestamp) %>% 
+  unique() %>% 
+  rename(food_frequency_complete = food_frequency_followup_complete) %>% 
+  rename(food_frequency_timestamp = food_frequency_followup_timestamp)
+prepro_second
+
+prepro_all <- rbind(prepro_first, prepro_second)
+prepro_all
+```
+
+```{r}
+lush <- ffq_comp %>% 
+  select(id_participant) %>% 
+  unique()
+lushy <- prepro_all %>% 
+  select(id_participant) %>% 
+  unique()
+lushiest <- rbind(lush, lushy) %>% 
+  unique()
+lushiest
+
+fern <- anti_join(lushiest, lush)
+fern2 <- merge(fern, clin_dems, by = "id_participant")
+fern2
+```
+
+
+```{r}
+library(Hmisc)
+ffq_comp$ffq_date <- word(ffq_comp$food_frequency_timestamp)
+ffq_comp$ffq_date <- gsub(" ", "", ffq_comp$ffq_date)
+ffq_comp$ffq_date <- ymd(ffq_comp$ffq_date)
+ffq_comp_dates <- ffq_comp %>% 
+  filter(n_ffq >= 2) %>% 
+  arrange(id_participant, ffq_date) %>% 
+  group_by(id_participant) %>% 
+  mutate(diffDate = difftime(ffq_date, Lag(ffq_date,shift = 1), units="days")) %>% 
+  ungroup() %>% 
+  drop_na() %>% 
+  drop_na(diffDate)
+ffq_comp_dates$diffDate <- as.numeric(ffq_comp_dates$diffDate)
+ffq_comp_dates$diffDate <- (ffq_comp_dates$diffDate)/30
+mean(ffq_comp_dates$diffDate)
+sd(ffq_comp_dates$diffDate)
+median(ffq_comp_dates$diffDate)
+IQR(ffq_comp_dates$diffDate)
+```
+
+```{r}
+mult <- ffq_comp %>% 
+  filter(n_ffq>=2) %>% 
+  select(id_participant, n_ffq) %>% 
+  unique()
+mean(mult$n_ffq)
+sd(mult$n_ffq)
+median(mult$n_ffq)
+IQR(mult$n_ffq)
+```
+
+
+
+
+
+
+
+
+
+
+
