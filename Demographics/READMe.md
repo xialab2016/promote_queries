@@ -28,6 +28,14 @@ Input: PROMOTEDatabase
 
 Output: Table with number of unique participants in each of the following subject groups: CIS, RIS, RRMS, SPMS, PPMS, Uncategorized MS, MS Total, NMOSD, MOGAD, Myelitis, Other NID, Other Autoimmune, Other Misc, Other NID/OND/Autoimmune Total, Healthy Control, Unknown, Total Overall
 
+# Pediatric Query
 
+Version 1: 2024-06-05
+
+Generates lists of participants that had pediatric MS at three different criteria for 'pediatric'
+
+Input: PROMOTEDatabase
+
+Output: List of participants with first neuro sx under age of 18 AND diagnosed with MS under 18, list of participants with first neuro sx at/under age of 18 AND diagnosed with MS at/under age 18, and list of participants with first neuro sx under 21 AND diagnosed with MS under age 21
 
 
