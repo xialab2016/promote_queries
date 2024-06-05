@@ -209,3 +209,13 @@
     Input: PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO, Missing Identifiers
 
     Output: CSV file with all SSS scores for PROMOTE participants, histogram of all SSS scores
+
+29. Alochol Query
+
+    Version 1: 2024-06-05
+
+    Generates list of all PROMOTE participants with alcohol data (any), then prts with alcohol data and at least one PDDS score, then separates by subject group.
+
+    Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Legacy PQ/SRO
+
+    Output: XLSX file with list of all PROMOTE participants with at least one question answered regarding alcohol consumption, CSV file with list of all MS participants with alcohol data and at least one PDDS score, CSV file with list of all NMO participants with alcohol data and at least one PDDS score, CSV file with list of all MOG participants with alcohol data and at least one PDDS score, CSV file with list of all healthy control participants with alcohol data and at least one PDDS score
