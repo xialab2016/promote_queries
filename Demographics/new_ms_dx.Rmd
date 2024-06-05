@@ -1,0 +1,139 @@
+---
+title: "New MS Diagnosis Query"
+output: html_document
+date: "2024-04-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r}
+#Goal of this query is to find the number of new MS diagnoses by year
+#First will use diagnosis within (+/-) 6 months of enrollment date
+#Then will use diagnosis within (+/-) 12 months of enrollment date
+
+#Input files: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2
+
+#change source files as necessary
+```
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+```
+
+```{r}
+database <- read.csv("database.csv")
+long1 <- read.csv("long1.csv")
+long2 <- read.csv("long2.csv")
+long <- rbind(long1, long2)
+database[database == ""] <- NA
+long[long == ""] <- NA
+database
+long
+```
+
+```{r}
+#making df with only MS PRTs and their date of MS Dx, then date formatting
+ms_dx <- database %>% 
+  select(id_participant, date_msdx, subject_group) %>% 
+  filter(subject_group == 1) %>% 
+  drop_na(date_msdx) %>% 
+  unique()
+ms_dx$date_msdx <- ymd(ms_dx$date_msdx)
+ms_dx
+```
+
+```{r}
+#making df of all participants and their enrollment date (from longitudinal projects), then date formatting
+enroll <- long %>% 
+  select(id_participant_l, doe) %>% 
+  rename(id_participant = id_participant_l) %>% 
+  drop_na(doe) %>% 
+  unique()
+enroll$doe <- ymd(enroll$doe)
+enroll
+```
+
+```{r}
+#merging together
+msdx3 <- merge(ms_dx, enroll, by = "id_participant")
+msdx2 <- msdx3 %>% 
+  select(-subject_group) %>% 
+  mutate(time_int = interval(doe, date_msdx)) %>% 
+  mutate(time_to_dx = time_length(time_int, "month")) %>% 
+  select(-time_int)
+msdx2$time_to_dx <- abs(msdx2$time_to_dx) #making absolute value so it won't matter if the diagnosis was before or after enrollment, just proximal to it
+msdx2
+
+msdx17 <- msdx2 %>% #making individual dfs for each year of enrollment
+  filter(format(doe, "%Y") == "2017")
+msdx17
+
+msdx18 <- msdx2 %>%
+  filter(format(doe, "%Y") == "2018")
+msdx18
+
+msdx19 <- msdx2 %>%
+  filter(format(doe, "%Y") == "2019")
+msdx19
+
+msdx20 <- msdx2 %>%
+  filter(format(doe, "%Y") == "2020")
+msdx20
+
+msdx21 <- msdx2 %>%
+  filter(format(doe, "%Y") == "2021")
+msdx21
+
+msdx22 <- msdx2 %>%
+  filter(format(doe, "%Y") == "2022")
+msdx22
+
+msdx23 <- msdx2 %>%
+  filter(format(doe, "%Y") == "2023")
+msdx23
+
+msdx24 <- msdx2 %>%
+  filter(format(doe, "%Y") == "2024")
+msdx24
+```
+
+```{r}
+#6 month time filter to start (unhashtag the row you want to run)
+#msdx17 %>% filter(time_to_dx <= 6)
+#msdx18 %>% filter(time_to_dx <= 6)
+#msdx19 %>% filter(time_to_dx <= 6)
+#msdx20 %>% filter(time_to_dx <= 6)
+#msdx21 %>% filter(time_to_dx <= 6)
+#msdx22 %>% filter(time_to_dx <= 6)
+#msdx23 %>% filter(time_to_dx <= 6)
+#msdx24 %>% filter(time_to_dx <= 6)
+
+#12 month time filter now
+#msdx17 %>% filter(time_to_dx <= 12)
+#msdx18 %>% filter(time_to_dx <= 12)
+#msdx19 %>% filter(time_to_dx <= 12)
+#msdx20 %>% filter(time_to_dx <= 12)
+#msdx21 %>% filter(time_to_dx <= 12)
+#msdx22 %>% filter(time_to_dx <= 12)
+#msdx23 %>% filter(time_to_dx <= 12)
+msdx24 %>% filter(time_to_dx <= 12)
+```
+
+
+
+
+
+
+
