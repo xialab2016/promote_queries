@@ -229,3 +229,14 @@
     Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, Covid Registry, pdds_all.csv, msrsr_all.csv, promis_physical_all.csv. promis_cognitive_all.csv, promis_depression_all.csv, sdmt_all.csv, hpt_all.csv, footwalk_all.csv, oct_all.csv
 
     Output: CSV file of Covid Registry PROMOTE participant list, then mean (SD) number of scores for each of the above listed outcomes
+
+31. FFQ Descriptive Stats
+
+    Version 1: 2024-06-05
+
+    Finds total number of FFQs completed, mean (sd) number of FFQs completed by all PROMOTE/PrePro participants, as well as IQR and Median of time elapsed between longitudinal scores for participants that have completed more than 1
+
+    Input: PROMOTEDatabase, PROMOTE Longitudinal 1, PROMOTE Longitudinal 2, PrePro
+
+    Output: Generates number of unique participants that have completed at least one FFQ, how many FFQ those participants have completed, mean (sd) number of scores per participants, and mean, sd, median, and IQR of time elapsed between consecutive FFQs for participants that have completed at least 2
+
