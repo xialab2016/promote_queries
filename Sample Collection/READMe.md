@@ -69,3 +69,13 @@
    Input: PROMOTEDatabase, discont_raw.csv (in the relevant .csv files folder of shared OneDrive -> Data Analysis -> Data Queries)
 
    Output: CSV file with all PROMOTE participants that we have serum sample for both before and after permanent discontinuation of DMT (estimated based on incomplete EHR data), mean (sd) time length between the two samples (most recent before and most recent after)
+
+9. OCT Cleaning Query
+
+   Version 1: 2024-06-05
+
+   Pulls all OCT reports for PROMOTE participants
+
+   Input: PROMOTEDatabase
+
+   Output: CSV file with all OCT reports in the PROMOTE Database
