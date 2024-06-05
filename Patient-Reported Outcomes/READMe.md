@@ -240,7 +240,7 @@
 
     Output: Generates number of unique participants that have completed at least one FFQ, how many FFQ those participants have completed, mean (sd) number of scores per participants, and mean, sd, median, and IQR of time elapsed between consecutive FFQs for participants that have completed at least 2
 
-33. FFQ Descriptive Stats
+33. Sustained Disability Progression
 
     Version 1: 2024-06-05
 
@@ -254,7 +254,7 @@
       2 = had sufficient data to assess, sustained PDDS decrease (disability improvement)
       NA = did not have sufficient PDDS data to assess
 
-33. Relapse Outcome
+34. Relapse Outcome
 
     Version 1: 2024-06-05
 
@@ -263,5 +263,19 @@
     Input: CombinedData (this is the file name you'll see in the code, you can change it to whatever participant list you need. It needs to include id_participant, relapse date, relapse type, and clinical demographic data (dob, date MS dx))
 
     Output: Generates N relapses, annualized relapse rate, and time to first relapse for all entered participants, exports a CSV file containing all three relapse outcomes
+
+35. Sustained Disability Progression
+
+    Version 1: 2024-06-05
+
+    Finds confirmed disability progression outcomes for all PROMOTE participants
+
+    Input: PROMOTEDatabase, pdds_all, all_repop(this is the name of the file I originally used, change it to whatever participant list you need, just needs to have id_participant the date you want to start assessing outcomes from)
+
+    Output: Generates one of four outcomes for each PROMOTE participants based on PDDS availability:
+      0 = had sufficient data to assess, neither confirmed increase or decrease
+      1 = had sufficient data to assess, confirmed PDDS increase (disability worsening)
+      2 = had sufficient data to assess, confirmed PDDS decrease (disability improvement)
+      NA = did not have sufficient PDDS data to assess
       
 
