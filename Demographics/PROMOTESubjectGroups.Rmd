@@ -1,0 +1,127 @@
+---
+title: "EnrollmentBreakdown"
+author: "Libby Walker"
+date: "10/15/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(stringr)
+library(tidyr)
+library(plyr); library(dplyr)
+library(readxl)
+
+#This code runs detailed disease subtype breakdown at enrollment
+
+#To Run:
+#Make sure the Database.xlsx file is updated for this week, then hit run on line 26
+#View the final_table data frame at the end and copy the results 
+
+```
+
+```{r}
+setwd("your_working_directory")
+
+database <- read.csv("Database.csv")
+
+#Generate matrix
+final_table <- matrix(nrow = 18, ncol = 2)
+colnames(final_table) <- c('Disease Subtype','Number of Participants')
+final_table[1:18,1] <- c("CIS", "RIS", "RRMS", "SPMS", "PPMS", "Uncategorized MS", "MS Total", "NMOSD", "MOGAD", "Myelitis", "Other NID", "Other Neurological Disorder", "Other Autoimmune", "Other Misc", "Other NID/OND/Autoimmune Total", "Healthy Control", "Unknown", "TOTAL")
+
+#find subtypes
+subtype <- database[,c("id_participant", "redcap_event_name", "dob", "subject_sex", "race", "ethnicity", "date_msdx", "subject_group", "subtype_enroll", "related_name", "dx_group_main", "dx_other_group", "dx_neuroinfl___1", "dx_neuroinfl___2", "dx_neuroinfl___3", "dx_neuroinfl___4","dx_neuroinfl___5", "dx_neuroinfl___6", "dx_neuroinfl___7", "dx_neuroinfl___8", "dx_neuroinfl___9", "dx_neuroinfl___10", "dx_neuroinfl___11","dx_neuroinfl___12", "dx_neurolog___1", "dx_neurolog___2", "dx_neurolog___3", "dx_neurolog___4", "dx_neurolog___5", "dx_neurolog___6", "dx_neurolog___7", "dx_neurolog___8", "dx_neurolog___9", "dx_neurolog___10", "dx_neurolog___11", "dx_neurolog___12", "dx_neurolog___13", "dx_neurolog___14", "dx_neurolog___15", "dx_neurolog___16", "dx_neurolog___17", "dx_neurolog___18", "dx_neurolog___19", "dx_neurolog___20", "dx_neurolog___21", "dx_neurolog___22", "dx_neurolog___23", "dx_neurolog___24", "dx_neurolog___25", "dx_neurolog___26", "dx_neurolog___27", "dx_neurolog___28", "dx_neurolog___29", "dx_neurolog___30", "dx_ari___1", "dx_ari___2", "dx_ari___3", "dx_ari___4", "dx_ari___5", "dx_ari___6", "dx_ari___7", "dx_ari___8", "dx_ari___9", "dx_ari___10", "dx_ari___11", "dx_ari___12", "dx_ari___13", "dx_ari___14", "dx_ari___15", "dx_ari___16", "dx_ari___17", "dx_ari___18", "dx_ari___19", "dx_ari___20", "dx_ari___21", "dx_ari___22", "dx_ari___23", "dx_ari___24", "dx_ari___25", "dx_ari___26", "dx_ari___27", "dx_ari___28", "dx_ari___29", "dx_misc___1", "dx_misc___2", "dx_misc___3", "dx_misc___4")]
+subtype <- subtype %>% filter(str_detect(id_participant, "PRT"))
+subtype <- subtype %>% filter(str_detect(redcap_event_name, "consent"))
+
+#CIS
+cis <- subtype %>% filter(dx_group_main==2 & subtype_enroll==1)
+final_table[1,2] <- sum(table(unique(cis$id_participant)))
+
+#RIS
+ris <- subtype %>% filter(dx_group_main==2 & subtype_enroll==2)
+final_table[2,2] <- sum(table(unique(ris$id_participant)))
+
+#RRMS
+rrms <- subtype %>% filter(dx_group_main==2 & subtype_enroll==3)
+final_table[3,2] <- sum(table(unique(rrms$id_participant)))
+
+#SPMS
+spms <- subtype %>% filter(dx_group_main==2 & subtype_enroll==4)
+final_table[4,2] <- sum(table(unique(spms$id_participant)))
+
+#PPMS
+ppms <- subtype %>% filter(dx_group_main==2 & subtype_enroll==5)
+final_table[5,2] <- sum(table(unique(ppms$id_participant)))
+
+#Missing MS subtype
+missing <- subtype %>% filter(is.na(subject_group))
+missing2 <- subtype %>% filter(dx_group_main==2 & is.na(subtype_enroll))
+final_table[6,2] <- sum(table(unique(missing2$id_participant)))
+
+#NMOSD
+nmosd <- subtype %>% filter(dx_group_main==5)
+final_table[8,2] <- sum(table(unique(nmosd$id_participant)))
+
+#MOGAD
+mogad <- subtype %>% filter(dx_group_main==3)
+final_table[9,2] <- sum(table(unique(mogad$id_participant)))
+
+#Myelitis (including transverse myelitis)
+myelitis <- subtype %>% filter(dx_group_main==4)
+final_table[10,2] <- sum(table(unique(myelitis$id_participant)))
+
+#Other Neuroinflammatory Disorders (NID)
+otherNID <- subtype %>% filter(dx_neuroinfl___1 == 1 | dx_neuroinfl___2 == 1 | dx_neuroinfl___3 == 1 | dx_neuroinfl___4 == 1 | dx_neuroinfl___5 == 1 | dx_neuroinfl___6 == 1 | dx_neuroinfl___7 == 1 | dx_neuroinfl___8 == 1 | dx_neuroinfl___9 == 1 | dx_neuroinfl___10 == 1 | dx_neuroinfl___11 == 1 | dx_neuroinfl___12 == 1 & dx_group_main!=2)
+final_table[11,2] <- sum(table(unique(otherNID$id_participant)))
+
+#Other Neurological Disorders (OND)
+otherOND <- subtype %>% filter(dx_neurolog___1 == 1 | dx_neurolog___2 == 1 | dx_neurolog___3 == 1 | dx_neurolog___4 == 1 | dx_neurolog___5 == 1 | dx_neurolog___6 == 1 | dx_neurolog___7 == 1 | dx_neurolog___8 == 1 | dx_neurolog___9 == 1 | dx_neurolog___10 == 1 | dx_neurolog___11 == 1 | dx_neurolog___12 == 1 | dx_neurolog___13 == 1 | dx_neurolog___14 == 1 | dx_neurolog___15 == 1 | dx_neurolog___16 == 1 | dx_neurolog___17 == 1 | dx_neurolog___18 == 1 | dx_neurolog___19 == 1 | dx_neurolog___20 == 1 | dx_neurolog___21 == 1 | dx_neurolog___22 == 1 | dx_neurolog___23 == 1 | dx_neurolog___24 == 1 | dx_neurolog___25 == 1 | dx_neurolog___26 == 1 | dx_neurolog___27 == 1 | dx_neurolog___28 == 1 | dx_neurolog___29 == 1 | dx_neurolog___30 == 1 & dx_group_main!=2)
+final_table[12,2] <- sum(table(unique(otherOND$id_participant)))
+
+#Other Autoimmune Disorders
+otherAuto <- subtype %>% filter(dx_ari___1 == 1 | dx_ari___2 == 1 | dx_ari___3 == 1 | dx_ari___4 == 1 | dx_ari___5 == 1 | dx_ari___6 == 1 | dx_ari___7 == 1 | dx_ari___8 == 1 | dx_ari___9 == 1 |dx_ari___10 == 1 | dx_ari___11 == 1 | dx_ari___12 == 1 | dx_ari___13 == 1 | dx_ari___14 == 1 | dx_ari___15 == 1 | dx_ari___16 == 1 | dx_ari___17 == 1 | dx_ari___18 == 1 | dx_ari___19 == 1 | dx_ari___20 == 1 | dx_ari___21 == 1 | dx_ari___22 == 1 | dx_ari___23 == 1 | dx_ari___24 == 1 | dx_ari___25 == 1 | dx_ari___26 == 1 | dx_ari___27 == 1 | dx_ari___28 == 1 | dx_ari___29 == 1 & dx_group_main!=2)
+final_table[13,2] <- sum(table(unique(otherAuto$id_participant)))
+
+#Other Misc (abnormal MRI, lyme disease, scotoma, other)
+other_misc <- subtype %>% filter(dx_misc___1 == 1 |dx_misc___2 == 1 | dx_misc___3 == 1 | dx_misc___4 == 1)
+final_table[14,2] <- sum(table(unique(other_misc$id_participant)))
+
+#Healthy Controls
+control <- subtype %>% filter(dx_group_main==1)
+final_table[16,2] <- sum(table(unique(control$id_participant)))
+
+#Unknown
+unknown <- subtype %>% filter(is.na(dx_group_main) & is.na(dx_other_group))
+final_table[17,2] <- sum(table(unique(unknown$id_participant)))
+
+#Totals
+final_table <- as.data.frame(final_table)
+final_table$`Number of Participants` <- as.numeric(as.character(final_table$`Number of Participants`))
+  #ms total
+final_table[7,2] <- final_table[1,2] + final_table[2,2] + final_table[3,2] + final_table[4,2] + final_table[5,2] + final_table[6,2] 
+  #other total
+final_table[15,2] <-final_table[8,2] + final_table[9,2] + final_table[10,2] + final_table[11,2] + final_table[12,2] + final_table[13,2] + final_table[14,2]
+  #final total
+final_table[18,2] <- final_table[7,2] + final_table[15,2] + final_table[16,2] + final_table[17,2]
+
+final_table
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
