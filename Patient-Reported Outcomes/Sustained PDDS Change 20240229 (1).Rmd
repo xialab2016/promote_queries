@@ -1,0 +1,273 @@
+---
+title: "Sustain Progression"
+author: "Chenyi Chen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## library loading
+
+```{r}
+library(data.table)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(tidyr)
+library(lubridate) #date import
+library(readr)
+library(readr)
+library(tableone)
+require(openxlsx)
+library(naniar)
+library(readr)
+library(writexl) 
+library(dplyr)
+library(MASS)
+library(ggplot2)
+library(caTools)
+library(corrplot)
+library(patchwork)
+library(gplots)
+library(gridExtra)
+library(tidyr)
+library(readxl)
+# load conflicted package
+library(conflicted)
+# rename the readxl package's select() function
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflicted::conflicts_prefer(dplyr::first)
+```
+
+
+
+
+
+# read in PDDS scores and date 
+```{r}
+# load("my_data.RData")
+pdds_all2023_04_26<- read_csv("D:/OneDrive/OneDrive - University of Pittsburgh/Raw Data/pdds_all2023-11-15.csv") %>% select(-"...1")
+# clinical demo
+ClinicalDemographics2023_04_12 <- read_csv("D:/OneDrive/OneDrive - University of Pittsburgh/Raw Data/ClinicalDemographics2023-06-23.csv")%>% select(-c("...1","race","ethnicity"))
+
+PDDS_base = pdds_all2023_04_26 %>%
+  left_join(dplyr::select(ClinicalDemographics2023_04_12,id_participant,doe,diagnosis)) %>%  
+  filter(diagnosis == "PPMS"|diagnosis == "RRMS"|diagnosis == "CIS"|diagnosis == "SPMS")%>%  
+  group_by(id_participant) %>% 
+  mutate(baseline_PDDS = ifelse(date == doe, score, first(score[!is.na(score)]))) %>% arrange(id_participant) %>% dplyr::filter(row_number()==1) %>% select(id_participant,baseline_PDDS,date)
+
+```
+
+### susatain increase or decrease 
+```{r check if there is any consistant increse score patient}
+# select any PDDS score with in range
+filtered_df <- pdds_all2023_04_26 %>%
+  group_by(id_participant) %>%
+  mutate(first_date = min(date)) %>%
+  filter( 
+           (date >= first_date + 183 & date <= first_date + 365*2)
+           # 6 month away from baseline and within range of follow-up
+         |date == first_date
+         ) %>% # or baseline PDDS
+  ungroup() %>% arrange(id_participant)
+data = filtered_df %>% arrange(id_participant,date)
+
+id <- rep(NA, nrow(data))
+s1date <- rep(NA, nrow(data))
+s1score <- rep(NA, nrow(data))
+s2date <- rep(NA, nrow(data))
+s2score <- rep(NA, nrow(data))
+s3date <- rep(NA, nrow(data))
+s3score <- rep(NA, nrow(data))
+progression <- rep(NA, nrow(data))
+
+for (i in 1:(nrow(data)-2 )) {
+  # Set ID
+  id[i] <- data$id_participant[i]
+
+  # Set S1
+  s1date[i] <- data$date[i]
+  s1score[i] <- data$score[i]
+
+  # Look for S2
+  for (j in (i + 1):nrow(data)) {
+    if (data$id_participant[j] != id[i]) break
+# if score 2 is greater than score 1 and greater than 6 months
+    # keep the score
+    if (data$score[j] >  s1score[i]  && data$date[j] - s1date[i] >= 183) {
+      s2date[i] <- data$date[j]
+      s2score[i] <- data$score[j]
+      break
+    }
+  }
+
+# Look for S3
+  # if score 2 is available, find score 3 that is greater or equal to score 2(that is 6 months apart)
+if (!is.na(s2score[i])) {
+  for (k in (j + 1):nrow(data)) {
+    if (data$id_participant[k] != id[i]) break
+
+    if (data$score[k] >= s2score[i] && data$date[k] - s2date[i] >= 183 && data$score[j] > s1score[i]) {
+      s3date[i] <- data$date[k]
+      s3score[i] <- data$score[k]
+      progression[i] <- 1
+      break
+      # if score 3 is lower than score 2, or score 3 = score 2 = score 3, progression is set to 0
+    } else if  ((data$score[k] < s2score[i] |  (data$score[k] == s1score[i] & s1score[i] == s2score[i])) && data$date[k] - s2date[i] >= 183) {
+      progression[i] <- 0
+      s3date[i] <- data$date[k]
+      s3score[i] <- data$score[k]
+      break
+    }
+  }
+}
+}
+
+
+output_Progress <- data.frame(id = id, s1date = as.Date(s1date), s1score = s1score, s2date = as.Date(s2date), s2score = s2score, s3date = as.Date(s3date), s3score = s3score, progression = progression)  
+
+# First calculate the progression by id
+output_final <- output_Progress %>%
+  group_by(id) %>%
+  summarise(
+    SUS_progression = ifelse(
+      all(is.na(progression)), NA_real_,
+      ifelse(any(progression == 1, na.rm = TRUE), 1, 
+      ifelse(all(progression == 0, na.rm = TRUE), 0, NA_real_))
+    )
+  )
+
+sustainprogress =  output_Progress %>% 
+  filter(!is.na(s3date)) %>%  
+  group_by(id) %>%arrange(id,desc(progression),s1date,s2date ) %>% 
+  filter(row_number() == 1) %>% select(id,s1date,s2date,s3date)  %>% full_join(output_final)
+table(sustainprogress$SUS_progression)
+```
+
+
+```{r check if there is any consistant Increase score patient}
+data = filtered_df %>% arrange(id_participant,date)
+
+id <- rep(NA, nrow(data))
+s1date_inp <- rep(NA, nrow(data))
+s1score <- rep(NA, nrow(data))
+s2date_inp <- rep(NA, nrow(data))
+s2score <- rep(NA, nrow(data))
+s3date <- rep(NA, nrow(data))
+s3score <- rep(NA, nrow(data))
+progression <- rep(NA, nrow(data))
+
+for (i in 1:(nrow(data)-2)) {
+  # Set ID
+  id[i] <- data$id_participant[i]
+
+  # Set S1
+  s1date_inp[i] <- data$date[i]
+  s1score[i] <- data$score[i]
+
+  # Look for S2 (it has to be 1 pt increase)
+  for (j in (i + 1):nrow(data)) {
+    if (data$id_participant[j] != id[i]) break
+
+    if (data$score[j] < s1score[i]  && data$date[j] - s1date[i] >= 183) {
+      s2date_inp[i] <- data$date[j]
+      s2score[i] <- data$score[j]
+      break
+    }
+  }
+
+# Look for S3
+if (!is.na(s2score[i])) {
+  for (k in (j + 1):nrow(data)) {
+    if (data$id_participant[k] != id[i]) break
+
+    if (data$score[k] <= s2score[i] && data$date[k] - s2date_inp[i] >= 183 &&  s1score[i] != s2score[i]) {
+      s3score[i] <- data$score[k]
+      s3date[i] <- data$date[k]
+      progression[i] <- 1
+      break
+    } else if ((data$score[k] > s2score[i] |  (data$score[k] == s1score[i] & s1score[i] == s2score[i])) && data$date[k] - s2date_inp[i] >= 183) {
+      progression[i] <- 0
+      s3date[i] <- data$date[k]
+      s3score[i] <- data$score[k]
+      break
+    }
+  }
+}
+}
+
+
+output <- data.frame(id = id, s1date_inp = as.Date(s1date_inp), s1score = s1score, s2date_inp = as.Date(s2date_inp), s2score = s2score, s3date_inp = as.Date(s3date), s3score = s3score, improvement = progression) 
+
+# First calculate the progression by id
+output_final_in <- output %>%
+  group_by(id) %>%
+  summarise(
+    improvement = ifelse(
+      all(is.na(improvement)), NA_real_,
+      ifelse(any(improvement == 1, na.rm = TRUE), 2, 
+      ifelse(all(improvement == 0, na.rm = TRUE), 0, NA_real_))
+    )
+  )
+
+
+improve = output %>% filter(!is.na(s3date_inp))  %>% group_by(id)%>%  arrange(id,desc(improvement),s1date_inp,s2date_inp) %>%   filter(row_number() == 1) %>% select(id,s1date_inp,s2date_inp,s3date_inp)  %>% full_join(output_final_in)
+table(improve$improvement)
+```
+
+```{r}
+# merge two data and choose 
+
+df_sustain2 = improve  %>%
+  full_join(sustainprogress) %>%
+  mutate(
+    disability_status = ifelse(is.na(improvement) 
+                               , SUS_progression,
+                           ifelse(is.na(SUS_progression)
+                                  , improvement,
+                                  ifelse(!is.na(improvement) & !is.na(SUS_progression) & 
+                                           SUS_progression == 1 & s1date < s1date_inp, SUS_progression,
+                                         ifelse(!is.na(improvement) & !is.na(SUS_progression)& 
+                                             SUS_progression <  improvement,improvement,   
+                                             ifelse(!is.na(improvement) & !is.na(SUS_progression) & 
+                                             SUS_progression >  improvement,SUS_progression,
+                                         ifelse(!is.na(improvement) & improvement == 2 & !is.na(SUS_progression) & s1date > s1date_inp, improvement, 3)
+                                  )
+                           )))
+    )
+    
+    # select disability status by date, earlier status is chosen
+  ) %>% mutate(disability_status2 = ifelse(disability_status == 3 & 
+                                             s2date <  s2date_inp,SUS_progression,
+                                           ifelse(disability_status == 3 & 
+                                             SUS_progression == improvement& SUS_progression == 0,0,
+                                           
+                                           ifelse(disability_status == 3 &  s2date_inp < s2date,
+                                                  improvement,disability_status))))
+
+
+df_sustain = df_sustain2 %>%  
+    select(disability_status2) %>% 
+    rename(disability_status  = disability_status2,
+           id_participant = id) %>%
+  mutate(
+      improvement = ifelse(disability_status == 2, 1, 0), 
+      SUS_progression = ifelse(disability_status== 1, 1, 0))
+
+table(df_sustain$disability_status )
+```
+
+```{r}
+# 
+score_gap = df_sustain2 %>%
+  mutate(gap_score = ifelse(disability_status2 == 1, s3date - s1date,
+                            ifelse(disability_status2 == 0 & !is.na(s3date), s3date - s1date,
+                                   ifelse(disability_status2 == 0 & !is.na(s3date_inp), s3date_inp - s1date_inp,
+                           ifelse(disability_status == 2, s3date_inp - s1date_inp, NA))))) %>% mutate(gap_mo = gap_score/30)
+
+summary(score_gap$gap_mo)
+```
