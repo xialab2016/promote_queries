@@ -50,9 +50,9 @@ conflicted::conflicts_prefer(dplyr::first)
 # read in PDDS scores and date 
 ```{r}
 # load("my_data.RData")
-pdds_all2023_04_26<- read_csv("D:/OneDrive/OneDrive - University of Pittsburgh/Raw Data/pdds_all2023-11-15.csv") %>% select(-"...1")
+pdds_all2023_04_26<- read_csv("pdds_all.csv") %>% select(-"...1")
 # clinical demo
-ClinicalDemographics2023_04_12 <- read_csv("D:/OneDrive/OneDrive - University of Pittsburgh/Raw Data/ClinicalDemographics2023-06-23.csv")%>% select(-c("...1","race","ethnicity"))
+ClinicalDemographics2023_04_12 <- read_csv("ClinicalDemographics.csv")%>% select(-c("...1","race","ethnicity"))
 
 PDDS_base = pdds_all2023_04_26 %>%
   left_join(dplyr::select(ClinicalDemographics2023_04_12,id_participant,doe,diagnosis)) %>%  
