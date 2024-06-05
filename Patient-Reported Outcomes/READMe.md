@@ -254,3 +254,14 @@
       2 = had sufficient data to assess, sustained PDDS decrease (disability improvement)
       NA = did not have sufficient PDDS data to assess
 
+33. Relapse Outcome
+
+    Version 1: 2024-06-05
+
+    Finds relapse outcomes (N relapses, annualized relapse rate, time to first relapse) for whatever participant list you enter
+
+    Input: CombinedData (this is the file name you'll see in the code, you can change it to whatever participant list you need. It needs to include id_participant, relapse date, relapse type, and clinical demographic data (dob, date MS dx))
+
+    Output: Generates N relapses, annualized relapse rate, and time to first relapse for all entered participants, exports a CSV file containing all three relapse outcomes
+      
+
