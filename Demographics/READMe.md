@@ -38,4 +38,12 @@ Input: PROMOTEDatabase
 
 Output: List of participants with first neuro sx under age of 18 AND diagnosed with MS under 18, list of participants with first neuro sx at/under age of 18 AND diagnosed with MS at/under age 18, and list of participants with first neuro sx under 21 AND diagnosed with MS under age 21
 
+# New MS Diagnosis Query
 
+Version 1: 2024-06-05
+
+Finds number of participants that were enrolled within (before or after) 6/12 months of MS diagnosis, breaks down by year from 2017-2024
+
+Input: PROMOTEDatabase, Long1, Long2
+
+Output: List of participants enrolled within 6/12 months of msdx who enrolled in PROMOTE in 2017, 2018, 2019, 2020, 2021, 2022, 2023, and 2024 (separately)
