@@ -1,0 +1,81 @@
+---
+title: "Relapse_outcome"
+author: "Chenyi Chen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# read in source file 
+
+## skipped 
+
+# find out outcome wanted: 
+```{r}
+
+# Combined_data includes relapse information, clinical information 
+
+# combine all necessary information (relapse history, relapse_date, age, diagnosis date and  sex etc.)
+# select_outcome = 
+#   
+#   Combined_data  %>% 
+#   
+#   left_join(All_Relapses_long, by = c("id" = "id_participant")) %>% 
+#   left_join(MS_PRT_Demogs, by = c("id" = "id_participant")) %>% 
+#   mutate(date_msdx = as.Date(date_msdx ,format =  "%m/%d/%Y")) %>% 
+#   mutate(relapse_date =as.Date(ifelse(is.na(relapse_date),date_msdx,relapse_date)))
+
+
+# day since last relapse (gap between sample date and last relapse) --------------------
+
+select_outcome_gap = select_outcome %>%
+  filter(sample_date>= relapse_date) %>%  # here we try to look at the data before the relapse date
+  mutate(relapse_time_gap = as.numeric(difftime(sample_date, relapse_date, unit="days")), age = age.x) %>% #find out the time between sample collection and relapse 
+  
+  group_by(id,sample_date) %>%  
+  slice(which.min(relapse_time_gap)) # select the closest date of relapse 
+
+```
+
+```{r}
+# annualized relapse outcome --------------------------------
+
+## follow up to 2 years then divided by 2
+select_outcome_an1 = 
+  select_outcome  %>% 
+  mutate(last_2yrs = as.Date(sample_date) - as.difftime(730, unit="days")) %>%
+  filter(relapse_date>=last_2yrs & relapse_date< sample_date) %>% 
+  count(id) %>% 
+  mutate(annualized_relapse = n/2)
+
+select_outcome_an = Combined_data %>%  left_join (dplyr::select(select_outcome_an1,id,annualized_relapse)) %>% mutate(annualized_relapse = ifelse(is.na(annualized_relapse), 0, annualized_relapse))  %>%
+  group_by(id,sample_date) %>% arrange(id) %>% 
+  slice(1)
+```
+
+
+```{r}
+# number relapse in last 365 days ---------------------
+
+select_outcome_lastYr1 = 
+  select_outcome  %>% 
+  mutate(last_yr = as.Date(sample_date) - as.difftime(365, unit="days")) %>%
+  filter(relapse_date>= last_yr & relapse_date< sample_date) %>% 
+  count(id)
+
+select_outcome_lastYr = Combined_data %>%  left_join (dplyr::select(select_outcome_lastYr1,id,n)) %>% mutate(n = ifelse(is.na(n), 0, n))
+```
+
+
+```{r}
+# combine 3 main outcome want to use
+Combine_df_3outcome =Combined_data %>%  left_join(dplyr::select (select_outcome_gap, c("id","relapse_time_gap") ))  %>%    
+  left_join(dplyr::select(select_outcome_an,c("id","annualized_relapse"))) %>% 
+  left_join(dplyr::select(select_outcome_lastYr,c("id","n")))   %>% 
+  group_by(id,sample_date) %>% arrange(id) %>% 
+  slice(1)
+```
+
