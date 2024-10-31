@@ -1,6 +1,10 @@
-# Sample collection
+# Sample Collection
 
 1. Serum
+
+   Version 2: 2024-10-31
+
+   We updated the queries to reflect the new diagnosis status classification on REDCap.
 
    Version 1: 2024-04-16
 
@@ -20,7 +24,7 @@
 
    Output: Table of demographic summary for all PROMOTE participants with a plasma sample, CSV file containing all participants with DNA sample and their demographics
 
-4. PBMC
+5. PBMC
 
    Version 1: 2024-04-15
 
@@ -30,7 +34,7 @@
 
    Output: Table of demographic summary for all PROMOTE participants with a PBMC sample, CSV file containing all participants with DNA sample and their demographics
    
-5. DNA
+6. DNA
 
    Version 1: 2024-04-02
 
@@ -40,7 +44,7 @@
 
    Output: Table of demographic summary for all PROMOTE participants with a DNA sample, CSV file containing all participants with DNA sample and their demographics
    
-6. Stool
+7. Stool
 
    Version 1: 2024-04-16
 
