@@ -1,0 +1,936 @@
+---
+title: "Demographics"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("ggdist")
+```
+
+
+
+```{r}
+library(data.table)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(tidyr)
+library(gtsummary)
+
+#Finds list of demographics and CCI scores for all PROMOTE participants
+
+```
+
+#Import files
+```{r}
+setwd("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/XIA LAB/PROMOTE Materials/Data Description Paper/Source Files/2024-11-4/")
+
+database <- read.csv("PROMOTEDatabase.csv") #Export of the whole database project
+database <- database %>% filter(str_detect(id_participant, "PRT"))
+database <- database %>% filter(!str_detect(id_participant, "_x"))
+
+longitudinal1 <- read.csv("Long1.csv") #PROMOTE longitudinal project 1
+longitudinal2 <- read.csv("Long2.csv") #PROMOTE longitudinal project 2
+longitudinal <- rbind(longitudinal1, longitudinal2)
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+legacySNQ <- read.csv("Legacy_SNQ.csv") #Export of the whole PNQ Legacy project
+
+covid <- read.csv("covid_long.csv") #Export of the whole original covid project
+
+registry <- read.csv("COVID_Registry.csv") #Export of the whole covid registry project
+
+pasc <- read.csv("PASC.csv") #Export of the whole pasc project
+
+#uses query that finds dmt closest to enrollment by using all sources and date matching to the doe
+dmt_enroll <- read.csv("DMTs_enroll.csv") #Resulting file from the DMT query also found in this folder of data queries
+
+```
+
+#Database Disease group
+```{r}
+diseaseGroup <- database %>% filter(str_detect(redcap_event_name, "consent"))
+diseaseGroup <- diseaseGroup[,c("id_participant", "dx_group_main", "subtype_enroll", "dx_other_group")]
+
+#CIS
+cis <- diseaseGroup %>% filter(dx_group_main==2 & subtype_enroll==1)
+cis$diagnosis <- (matrix("1", ncol = 1, nrow = nrow(cis)))
+
+#RIS
+ris <- diseaseGroup %>% filter(dx_group_main==2 & subtype_enroll==2)
+ris$diagnosis <- (matrix("2", ncol = 1, nrow = nrow(ris)))
+
+#RRMS
+rrms <- diseaseGroup %>% filter(dx_group_main==2 & subtype_enroll==3)
+rrms$diagnosis <- (matrix("3", ncol = 1, nrow = nrow(rrms)))
+
+#SPMS
+spms <- diseaseGroup %>% filter(dx_group_main==2 & subtype_enroll==4)
+spms$diagnosis <- (matrix("4", ncol = 1, nrow = nrow(spms)))
+
+#PPMS
+ppms <- diseaseGroup %>% filter(dx_group_main==2 & subtype_enroll==5)
+ppms$diagnosis <- (matrix("5", ncol = 1, nrow = nrow(ppms)))
+
+#NMOSD
+nmosd <- diseaseGroup %>% filter(dx_group_main==5)
+nmosd$diagnosis <- (matrix("7", ncol = 1, nrow = nrow(nmosd)))
+
+#MOGAD
+mogad <- diseaseGroup %>% filter(dx_group_main==3)
+mogad$diagnosis <- (matrix("8", ncol = 1, nrow = nrow(mogad)))
+
+#Myelitis
+myelitis <- diseaseGroup %>% filter(dx_group_main==4)
+myelitis$diagnosis <- (matrix("9", ncol = 1, nrow = nrow(myelitis)))
+
+#Other NID+OND List
+otherNIDOND <- diseaseGroup %>% filter(dx_other_group==1)
+
+  #replace all rows with "10" to indicate these are "other related disease" diagnoses
+otherNIDOND$diagnosis <- 10  
+
+#Controls without Neuroinflammatory Disorders
+control <- diseaseGroup %>% filter(dx_group_main==1)
+control$diagnosis <- (matrix("11", ncol = 1, nrow = nrow(control)))
+
+#Missing
+  #no subject group
+missing <- diseaseGroup %>% filter(dx_group_main==6) 
+missing$diagnosis <- (matrix("12", ncol = 1, nrow = nrow(missing)))
+  #MS, no subtype
+missing2 <- diseaseGroup %>% filter(dx_group_main==2 & is.na(subtype_enroll))
+missing2$diagnosis <- (matrix("6", ncol = 1, nrow = nrow(missing2)))
+
+#COMBINE ALL
+diseaseGroup <- rbind(cis, ris, rrms, spms, ppms, nmosd, mogad, myelitis, otherNIDOND, control, missing, missing2)
+diseaseGroup <- diseaseGroup[order(diseaseGroup$id_participant), ]
+diseaseGroup <- unique(diseaseGroup)
+table(diseaseGroup$diagnosis)
+
+```
+
+#Enrollment date
+```{r}
+enrollment <- longitudinal %>% filter(str_detect(redcap_event_name, "year_01"))
+enrollment <- enrollment[,c("id_participant_l", "doe")]
+names(enrollment)[1] <- 'id_participant'
+
+
+```
+
+#DMT at enrollment- basic info
+```{r}
+dmts <- database %>% filter(str_detect(redcap_event_name, "consent"))
+dmts <- dmts[,c("id_participant", "dmt_current___1", "dmt_current___2", "dmt_current___3", "dmt_current___4", "dmt_current___5", "dmt_current___6", "dmt_current___7", "dmt_current___8", "dmt_current___9", "dmt_current___10", "dmt_current___11", "dmt_current___12", "dmt_current___13", "dmt_current___14", "dmt_current___15", "dmt_current___16", "dmt_current___17", "dmt_current___18", "dmt_current___19", "dmt_current___20", "dmt_current___21", "dmt_current___22", "dmt_current___23", "dmt_current___24", "dmt_current___25", "dmt_current___26", "dmt_current___99", "dmt_current_other")]
+
+#DMT type
+dmts$dmt_current___1 <- factor(dmts$dmt_current___1, levels = c(1), labels = c(1))
+dmts$dmt_current___2 <- factor(dmts$dmt_current___2, levels = c(1), labels = c(2))
+dmts$dmt_current___3 <- factor(dmts$dmt_current___3, levels = c(1), labels = c(3))
+dmts$dmt_current___4 <- factor(dmts$dmt_current___4, levels = c(1), labels = c(4))
+dmts$dmt_current___5 <- factor(dmts$dmt_current___5, levels = c(1), labels = c(5))
+dmts$dmt_current___6 <- factor(dmts$dmt_current___6, levels = c(1), labels = c(6))
+dmts$dmt_current___7 <- factor(dmts$dmt_current___7, levels = c(1), labels = c(7))
+dmts$dmt_current___8 <- factor(dmts$dmt_current___8, levels = c(1), labels = c(8))
+dmts$dmt_current___9 <- factor(dmts$dmt_current___9, levels = c(1), labels = c(9))
+dmts$dmt_current___10 <- factor(dmts$dmt_current___10, levels = c(1), labels = c(10))
+dmts$dmt_current___11 <- factor(dmts$dmt_current___11, levels = c(1), labels = c(11))
+dmts$dmt_current___12 <- factor(dmts$dmt_current___12, levels = c(1), labels = c(12))
+dmts$dmt_current___13 <- factor(dmts$dmt_current___13, levels = c(1), labels = c(13))
+dmts$dmt_current___14 <- factor(dmts$dmt_current___14, levels = c(1), labels = c(14))
+dmts$dmt_current___15 <- factor(dmts$dmt_current___15, levels = c(1), labels = c(15))
+dmts$dmt_current___16 <- factor(dmts$dmt_current___16, levels = c(1), labels = c(16))
+dmts$dmt_current___17 <- factor(dmts$dmt_current___17, levels = c(1), labels = c(17))
+dmts$dmt_current___18 <- factor(dmts$dmt_current___18, levels = c(1), labels = c(18))
+dmts$dmt_current___19 <- factor(dmts$dmt_current___19, levels = c(1), labels = c(19))
+dmts$dmt_current___20 <- factor(dmts$dmt_current___20, levels = c(1), labels = c(20))
+dmts$dmt_current___21 <- factor(dmts$dmt_current___21, levels = c(1), labels = c(21))
+dmts$dmt_current___22 <- factor(dmts$dmt_current___22, levels = c(1), labels = c(22))
+dmts$dmt_current___23 <- factor(dmts$dmt_current___23, levels = c(1), labels = c(23))
+dmts$dmt_current___24 <- factor(dmts$dmt_current___24, levels = c(1), labels = c(24))
+dmts$dmt_current___25 <- factor(dmts$dmt_current___25, levels = c(1), labels = c(25))
+dmts$dmt_current___26 <- factor(dmts$dmt_current___26, levels = c(1), labels = c(26))
+dmts$dmt_current___99 <- factor(dmts$dmt_current___99, levels = c(1), labels = c(99))
+dmts$dmt_current_all <- apply(dmts[ , c(2:29) ] , 1 , paste_noNA , sep=sep)
+
+dmts <- dmts[,c("id_participant", "dmt_current_all")]
+dmts$dmt_current_all <- factor(dmts$dmt_current_all, levels=c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,99), labels=c("Teriflunomide (Aubagio)", "Interferon Beta-1a (Avonex)", "Interferon Beta-1b (Betaseron)", "Glatiramer acetate (Copaxone/ Glatopa)", "Interferon Beta-1b (Extavia)", "Fingolimod (Gilenya)", "Mitoxantrone (Novantrone)", "Interferon Beta-1a (Rebif)", "Dimethyl fumarate/BG12 (Tecfidera)", "Natalizumab (Tysabri)", "Other", "Alemtuzumab/ Campath (Lemtrada)",  "Ocrelizumab (Ocrevus)", "Pegylated interferon Beta-1a (Plegridy)", "Daclizumab (Zinbryta)", "Rituximab (Rituxan)", "Cladribine (Mavenclad)", "Siponimod (Mayzent)", "Diroximel Fumarate (Vumerity)", "Ozanimod (Zeposia)", "Ofatumumab (Kesimpta)", "Eculizumab (Soliris)", "Inebilizumab-cdon (Uplizna)", "Satralizumab-mwge (Enspryng)", "Ponesimod (Ponvory)", "Monomethyl Fumarate (Bafiertam)", "None"))
+
+dmts$dmt_class <- factor(dmts$dmt_current_all, levels = c("Teriflunomide (Aubagio)", "Interferon Beta-1a (Avonex)", "Interferon Beta-1b (Betaseron)", "Glatiramer acetate (Copaxone/ Glatopa)", "Interferon Beta-1b (Extavia)", "Fingolimod (Gilenya)", "Mitoxantrone (Novantrone)", "Interferon Beta-1a (Rebif)", "Dimethyl fumarate/BG12 (Tecfidera)", "Natalizumab (Tysabri)", "Other", "Alemtuzumab/ Campath (Lemtrada)",  "Ocrelizumab (Ocrevus)", "Pegylated interferon Beta-1a (Plegridy)", "Daclizumab (Zinbryta)", "Rituximab (Rituxan)", "Cladribine (Mavenclad)", "Siponimod (Mayzent)", "Diroximel Fumarate (Vumerity)", "Ozanimod (Zeposia)", "Ofatumumab (Kesimpta)", "Eculizumab (Soliris)", "Inebilizumab-cdon (Uplizna)", "Satralizumab-mwge (Enspryng)", "Ponesimod (Ponvory)", "Monomethyl Fumarate (Bafiertam)", "None"),
+                         labels = c("pyrimidine blocker", "interferon-beta", "interferon-beta", "glatiramer acetate", "interferon-beta", "S1P R modulator", "cell proliferation blocker", "interferon-beta", "fumarate", "alpha4-integrin blocker", "Other", "chemotherapy",  "B cell depletion", "interferon-beta", "IL2R blocker", "B cell depletion", "purine analog", "S1P R modulator", "fumarate", "S1P R modulator", "B cell depletion", "C5 blocker", "B cell depletion", "IL6R blocker", "S1P R modulator", "fumarate", "None"))
+
+dmts <- unique(dmts)
+
+```
+
+#Unenrollment
+```{r}
+unenroll <- longitudinal[,c("id_participant_l", "date_unenrollment")]
+names(unenroll)[1] <- 'id_participant'
+unenroll <- unenroll %>% filter(str_detect(date_unenrollment, "20"))
+
+```
+
+#Deceased
+```{r}
+deceased <- database[,c("id_participant", "dod")]
+deceased <- deceased %>% filter(str_detect(dod, "20"))
+deceased <- deceased %>% filter(!str_detect(id_participant, "_x"))
+
+```
+
+#Combine
+```{r}
+demographics <- database %>% filter(str_detect(redcap_event_name, "consent"))
+demographics <- demographics[,c("id_participant", "dob", "subject_sex", "race", "ethnicity", "date_firstsx", "date_msdx")]
+
+#merge in diagnosis and both DMT sources
+#ES Edit 4.2.2024: only keeping DMT at date of enrollment, because otherwise each unique combination of participant and DMT gets counted as a unique participant here
+demographics <- merge(demographics, diseaseGroup, by = 'id_participant', all.x = TRUE)
+demographics <- unique(demographics)
+demographics <- merge(demographics, dmts, by = 'id_participant', all.x = TRUE)
+demographics <- unique(demographics)
+demographics <- merge(demographics, dmt_enroll, by = 'id_participant', all.x = TRUE)
+demographics <- demographics[,-c(14)]
+demographics <- unique(demographics)
+
+  #Get rid of any duplicates
+  test <- data.frame(table(demographics$id_participant))
+  rownames(demographics) <- 1:nrow(demographics)
+  demographics <- demographics
+  demographics <- demographics[(!(demographics$dob=="") & !(is.na(demographics$subject_sex))),]
+
+#merge in enrollment date
+demographics <- merge(demographics, enrollment, by = 'id_participant', all.x = TRUE)
+demographics <- unique(demographics)
+
+#merge in unenrollment date
+demographics <- merge(demographics, enrollment, by = 'id_participant', all.x = TRUE)
+demographics <- unique(demographics)
+
+#merge in deceased date
+demographics <- merge(demographics, enrollment, by = 'id_participant', all.x = TRUE)
+demographics <- unique(demographics)
+
+#removing duplicate column
+demographics <- demographics %>% 
+  select(-doe.x, -doe.y)
+
+```
+
+#Format
+```{r}
+#KEY NOTES
+  #There are only 2,904 participants- there is one duplicate b/c they're mog and nmo
+demographics_final <- demographics[,c("id_participant", "dob", "subject_sex", "race", "ethnicity", "doe", "date_firstsx", "date_msdx", "diagnosis", "dx_other_group", "dx_group_main", "dmt_current_all", "dmt_class", "type", "class")]
+demographics_final$subject_sex <- factor(demographics_final$subject_sex, levels=c(1,2), labels=c("Male", "Female"))
+demographics_final$race <- factor(demographics_final$race, levels=c(1,2,3,4,5,6,90,99), labels=c("Black", "American Indian or Alaska Native", "Asian", "White", "Multi-racial", "Native Hawaiian or Other Pacific Islander", "Others", "Not Sure"))
+demographics_final$ethnicity <- factor(demographics_final$ethnicity, levels=c(1,2,99), labels=c("Hispanic or Latino", "Not Hispanic or Latino", "Not Sure/Not Reported"))
+names(demographics_final)[9] <- 'enrollment_diagnosis'
+demographics_final$enrollment_diagnosis <- factor(demographics_final$enrollment_diagnosis, levels = c(1,2,3,4,5,6,7,8,9,10,11,12), labels = c("CIS", "RIS", "RRMS", "SPMS", "PPMS", "MS Unknown Subtype", "NMOSD", "MOGAD", "Myelitis", "Other NID+OND", "Healthy Control", "Unknown"))
+
+test <- data.frame(table(demographics_final$id_participant))
+test <- data.frame(table(demographics_final$dmt_current_all))
+sum(test$Freq)
+test <- data.frame(table(demographics_final$type))
+sum(test$Freq)
+
+#calculate age at enrollment
+demographics_final$dob <- format(as.POSIXct(demographics_final$dob, format = "%Y-%m-%d"), "%Y-%m-%d")
+demographics_final$doe <- format(as.POSIXct(demographics_final$doe, format = "%Y-%m-%d"), "%Y-%m-%d")
+demographics_final$age_enroll <- round(((difftime(demographics_final$doe, demographics_final$dob, units = "weeks"))/52.25), digits = 2)
+
+#calculate age at first sx
+demographics_final$date_firstsx <- format(as.POSIXct(demographics_final$date_firstsx, format = "%Y-%m-%d"), "%Y-%m-%d")
+demographics_final$age_firstsx <- round(((difftime(demographics_final$date_firstsx, demographics_final$dob, units = "weeks"))/52.25), digits = 2)
+
+#calculate age at dx
+demographics_final$date_msdx <- format(as.POSIXct(demographics_final$date_msdx, format = "%Y-%m-%d"), "%Y-%m-%d")
+demographics_final$age_msdx <- round(((difftime(demographics_final$date_msdx, demographics_final$dob, units = "weeks"))/52.25), digits = 2)
+
+#calculate disease duration at enrollment
+demographics_final$dxdur_enroll <- round(((difftime(demographics_final$doe, demographics_final$date_firstsx, units = "weeks"))/52.25), digits = 2)
+demographics_final$dxdur_enroll <- as.numeric(as.character(demographics_final$dxdur_enroll))
+
+#add subject group back for the demographics figure
+  #change PRT212228 to indicate changed diagnosis
+demographics_final$dx_group_main <- factor(demographics_final$dx_group_main, levels = c(1:6), labels = c("Healthy Control", "MS", "Other NID", "Other NID","Other NID","Other NID"))
+demographics_final$dx_group_main <- as.character(demographics_final$dx_group_main)
+demographics_final$dx_group_main <- ifelse((is.na(demographics_final$dx_group_main) & str_detect(demographics_final$id_participant, "PRT212228")), "MS", demographics_final$dx_group_main)
+
+#add dichotomized race & ethnicity for the demographics figure (1=caucasian not hispanic, 2=all others)
+demographics_final$bi_re <- ifelse(
+    ( 
+        (demographics_final$race %in% c("White")) &
+        (demographics_final$ethnicity %in% c("Not Hispanic or Latino"))
+    ),
+    "Caucasian Non Hispanic",  #puts this where conditions are met
+    "Other"         #puts this where conditions are not met
+)
+
+  #filter for participants enrolled before 2023
+#ES 4.2.2024: I've muted this line for now, but can adjust depending on when you need the demographics for
+#demographics_final <- demographics_final %>% filter((!str_detect(id_participant, "PRT23")))
+
+  #Remove enrollment dmt columns in favor of the dmt query columns
+#ES EDIT 4.2.2024^^ changed this to favor the enrollment dmt columns instead of the dmt query columns
+demographics_final <- demographics_final[,-c(13,14)]
+demographics_final <- unique(demographics_final)
+#add dmt efficacy for the demographics figure (1=standard, 2=high, 3=NA)
+demographics_final$dmt_efficacy <- factor(demographics_final$dmt_current_all, levels = c("Teriflunomide (Aubagio)", "Interferon Beta-1a (Avonex)", "Interferon Beta-1b (Betaseron)", "Glatiramer acetate (Copaxone/ Glatopa)", "Interferon Beta-1b (Extavia)", "Fingolimod (Gilenya)", "Mitoxantrone (Novantrone)", "Interferon Beta-1a (Rebif)", "Dimethyl fumarate/BG12 (Tecfidera)", "Natalizumab (Tysabri)", "Other", "Alemtuzumab/ Campath (Lemtrada)",  "Ocrelizumab (Ocrevus)", "Pegylated interferon Beta-1a (Plegridy)", "Daclizumab (Zinbryta)", "Rituximab (Rituxan)", "Cladribine (Mavenclad)", "Siponimod (Mayzent)", "Diroximel Fumarate (Vumerity)", "Ozanimod (Zeposia)", "Ofatumumab (Kesimpta)", "Eculizumab (Soliris)", "Inebilizumab-cdon (Uplizna)", "Satralizumab-mwge (Enspryng)", "Ponesimod (Ponvory)", "Monomethyl Fumarate (Bafiertam)", "None"),
+                         labels = c(3, 1, 1, 1, 1, 1, 2, 1, 1, 2, 3, 2,  2, 1, 1, 2, 2, 1, 1, 1, 2, 3, 3, 3, 1, 1, 3))
+demographics_final$dmt_efficacy <- factor(demographics_final$dmt_efficacy, levels = c(1,2,3), labels=c("Standard", "High", "None"))
+
+#This is the final file which can be used in other projects
+#write.csv(demographics_final, "PROMOTEDemographics.csv")
+
+```
+
+#Table 1
+```{r}
+#Table 1
+select(demographics_final, c(age_enroll, subject_sex, race, ethnicity, age_firstsx, age_msdx, enrollment_diagnosis, dx_group_main, dmt_current_all, class)) %>%
+  tbl_summary(statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
+              digits = all_continuous() ~ 2,
+              missing_text = "Missing",
+              label = list(age_enroll ~ "Age at Enrollment", subject_sex ~ "Sex", race ~ "Race", ethnicity ~ "Ethnicity", age_firstsx ~ "Age at First Symptom", age_msdx ~ "Age at MS Diagnosis", enrollment_diagnosis ~ "Disease Diagnosis", dx_group_main ~ "Subject Group", dmt_current_all ~ "DMT at Enrollment", class ~ "DMT Class")) %>%
+  bold_labels()
+
+```
+
+#Demographics figure
+```{r}
+#The following chunks generate the components of the demographics figure originally designed by Zahra at University of Toronto
+#The individual panels need to be stitched together in either keynote, photoshop, powerpoint, etc.
+
+#Currently formatted to be broken down by subject group where only MS, Other, and Control are displayed
+```
+
+##Set up
+
+```{r}
+
+library(quadprog)
+library(ggdist)
+```
+
+
+```{r}
+## Chart Theme ==========
+#--set the theme
+theme_set(theme_minimal())
+theme_update(
+  plot.background = element_rect(fill = "#FFFFFF", color = "#FFFFFF"),
+  panel.background = element_rect(fill = NA, color = NA),
+  panel.border = element_rect(fill = NA, color = "#FFFFFF", linewidth=.7),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  plot.title = element_blank(),
+  legend.position = "none",
+  legend.text=element_text(size=8),
+  plot.caption = element_text(
+    family = "Arial",
+    size = 20,
+    color = "grey70",
+    face = "bold",
+    hjust = .5,
+    margin = margin(5, 0, 20, 0)
+  ),
+  plot.margin = margin(0,0,0,5)
+)
+
+## Read the data =======
+data = demographics_final
+d <- data %>% 
+  filter(!str_detect(dx_group_main, "Unknown")) %>%
+  group_by(dx_group_main)
+#characteristic==dx_group_main
+
+#reverse the subject group levels so they come out the right way in the graphs
+d$dx_group_main <- factor(d$dx_group_main, levels = c("MS", "Other NID", "Healthy Control"), labels = c("MS", "Other NID", "Healthy Control"))
+d$dx_group_main <- factor(d$dx_group_main, levels = rev(levels(d$dx_group_main)))
+d <- d[order(d$dx_group_main), ]
+
+#ggplot(d, aes(x = dx_group_main)) + 
+  #  geom_bar() + 
+  #  theme(strip.text = element_blank(), #--facet theme
+  # axis.text.x = element_blank(),
+ #  axis.text.y = element_text(face = "plain", color = "black", size = 8, angle = 0),
+ #  axis.ticks = element_blank(),
+ #  axis.title.y = element_blank(),
+ #  axis.title.x = element_blank()
+ #    )
+
+```
+
+##Age
+```{r}
+# Age/Sex Plot ======== (displays age at enrollment by subject group, colored for sex)
+sex_age_density2 <- ggplot(d, aes(y = dx_group_main, x = age_enroll, fill=subject_sex, order = subject_sex, group=NA)) +
+  geom_dots(linewidth = 0) +
+  ggdist::stat_halfeye(
+    aes(x = age_enroll, y = dx_group_main),
+    color = "#3b3a3c",
+    scale = .3,
+    fill = "#dee5e4",
+    adjust = .2,
+    side = "bottom",
+    width = .6, 
+    ## set slab interval to show IQR and 95% data range
+    .width = c(.5, .95),
+  ) +
+    scale_fill_manual(values = c("#ba181b", "#1676b3")) +
+  scale_color_manual(values = c("#ba181b", "#1676b3")) +
+  theme(axis.title.y = element_blank(),
+    axis.title.x = element_blank(), 
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(margin = margin(t = 30, b = 30)),
+    axis.ticks.lengths.y = unit(1, "cm")
+ ) 
+
+print(sex_age_density2)
+
+ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_age_density.png", plot = last_plot(), width = 6.67, height = 7.2, units = "in")
+dev.off()
+
+
+# Age/Sex (First) Plot ======== (displays age at first sx by subject group, colored for sex)
+
+sex_onset_density<- ggplot(d, aes(x = age_firstsx, y = dx_group_main, fill=subject_sex, order = subject_sex, group=NA)) + 
+  geom_dots(linewidth = 0) +
+  ggdist::stat_halfeye(
+    aes(x = age_firstsx, y = dx_group_main),
+    color = "#050b24",
+    scale = .3,
+    fill = "#dee5e4",
+    adjust = .2,
+    side = "bottom",
+    width = .6, 
+    ## set slab interval to show IQR and 95% data range
+    .width = c(.5, .95)
+  ) +
+  scale_x_continuous(limits = c(0, 90), expand = c(0, 0)) +
+  coord_cartesian(ylim = c(1, NA))+
+  scale_fill_manual(values = c("#ba181b", "#1676b3"))+
+  scale_color_manual(values = c("#ba181b", "#1676b3")) +
+  ggtitle("Age of Symptom Onset") + xlab("Year") +
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank()) 
+print(sex_onset_density)
+
+ ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_onset_density.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ dev.off()
+
+```
+
+##Sex
+```{r}
+# Sex Plots ==========
+# In this section, we have two versions of the bar charts: stacked and grouped! 
+
+## Sex Stacked Bar ========== (displays sex by subject group in a stacked bar)
+sex_bar <- ggplot(d, aes(y = dx_group_main, fill=subject_sex)) +
+  geom_bar(position = position_fill(reverse = TRUE), width=.3)+
+  scale_color_manual(values = c("#ba181b", "#1676b3"))+
+  scale_fill_manual(values = c("#ba181b", "#1676b3"), name="Sex")+
+  ggtitle("Sex (%)") + xlab("") +
+  theme(legend.position="bottom", legend.title = element_text(size=8))+
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank()
+) 
+print(sex_bar)
+
+ ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_bar.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+dev.off()
+
+## Sex Grouped Bar ========== (displays sex by subject group with %ages)
+sex_grouped <- d %>%
+  count(subject_sex) %>%
+  group_by(dx_group_main) %>%
+  mutate(perc = n / sum(n)) %>%
+  ggplot(aes(x=subject_sex, y=perc, fill=subject_sex)) +
+  geom_bar(stat="identity") +
+  scale_color_manual(values = c("#ba181b", "#1676b3")) +
+  scale_fill_manual(values = c("#ba181b", "#1676b3"), name="Sex")+ facet_wrap(~reorder(dx_group_main, desc(dx_group_main)), ncol=1) +
+  ggtitle("Sex (%)") + xlab("") + scale_y_continuous(labels = scales::percent, limits = c(0,1.3)) +
+  theme(legend.position="bottom", legend.title = element_text(size=8)) +
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank()
+) 
+print(sex_grouped)
+
+ ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ dev.off()
+
+```
+
+##Disease duration
+```{r}
+# Disease Duration/Type Density ==========
+
+duration_type_density<- ggplot(d, aes(x = dxdur_enroll, y = dx_group_main, fill=subject_sex, order = subject_sex, group=NA)) + 
+  geom_dots(linewidth = 0) +
+  ggdist::stat_halfeye(
+    aes(x = dxdur_enroll, y = dx_group_main),
+    color = "#050b24",
+    scale = .3,
+    fill = "#dee5e4",
+    adjust = .2,
+    side = "bottom",
+    width = .6, 
+    ## set slab interval to show IQR and 95% data range
+    .width = c(.5, .95)
+  ) +
+  scale_x_continuous(limits = c(0, 58), expand = c(0, 0)) +
+  coord_cartesian(ylim = c(1, NA)) +
+  scale_fill_manual(values = c("#ba181b", "#1676b3"))+
+  scale_color_manual(values = c("#ba181b", "#1676b3")) +
+  ggtitle("Disease Duration at Enrollment") +
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank()
+) 
+print(duration_type_density)
+
+ ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/duration_type_density.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ dev.off()
+
+```
+
+##DMTs
+```{r}
+# DMT Plots ==========
+# In this section, we have two versions of the bar charts: stacked and grouped!
+
+## DMT stacked Bar Charts ======
+dmt_stacked<- d %>%
+  group_by(dx_group_main) %>%
+  drop_na(dmt_efficacy) %>%
+  ggplot(aes(y = dx_group_main, fill=factor(dmt_efficacy, levels=c('Standard', 'High', 'None')))) +
+  geom_bar(position = position_fill(reverse = TRUE), width=.3)+
+  scale_color_manual(values = c("#b3c100", "#e39a3b", "#00afb9"))+
+  scale_fill_manual(name = "DMT Type", values = c("#b3c100", "#e39a3b", "#00afb9")) +
+  theme(legend.position="bottom", legend.title = element_text(size=8)) +
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank()
+) 
+print(dmt_stacked)
+
+ ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/dmt_stacked.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ dev.off()
+
+## DMT grouped Bar Charts ======
+dmt_grouped <- d %>%
+  group_by(dx_group_main) %>%
+  drop_na(dmt_efficacy) %>%
+  count(dmt_efficacy) %>%
+  group_by(dx_group_main) %>%
+  mutate(perc = n / sum(n)) %>%
+  ggplot(aes(x=dmt_efficacy, y=perc, fill=factor(dmt_efficacy, levels=c('Standard', 'High', 'None')))) +
+  geom_bar(stat="identity", width = .9)+
+  scale_color_manual(values = c("#b3c100", "#e39a3b", "#00afb9"))+
+  scale_fill_manual(name = "DMT Type", values = c("#b3c100", "#e39a3b", "#00afb9"))+ facet_wrap(~reorder(dx_group_main, desc(dx_group_main)), ncol=1) +
+  ggtitle("Sex (%)") + xlab("")+scale_y_continuous(labels = scales::percent, limits = c(0,1.3)) +
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank(),
+  legend.position = "bottom", legend.title = element_text(size=8))
+print(dmt_grouped)
+
+ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/dmt_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+dev.off()
+
+```
+
+##Age onset
+```{r}
+# Density and  Binned Onset Age ==========
+# classifying the onset age to different categories
+
+age_onset_binned<- d %>% mutate(agegroup = case_when(age_firstsx >= 0  & age_firstsx <= 11 ~ '0-11',
+                                  age_firstsx >= 12  & age_firstsx <= 17 ~ '12-17',
+                                  age_firstsx >= 18  & age_firstsx <= 25 ~ '18-25',
+                                  age_firstsx >= 26  & age_firstsx <=49 ~ '26-49',
+                                  age_firstsx >= 50  & age_firstsx <= 69 ~ '50-69'))
+
+duration_binned_onset<- ggplot(age_onset_binned, aes(x = dxdur_enroll, y = dx_group_main, fill=agegroup, order = agegroup, group=NA)) + 
+    geom_dots(linewidth = 0) +
+  ggdist::stat_halfeye(
+    aes(x = dxdur_enroll, y = dx_group_main),
+    color = "#050b24",
+    scale = .3,
+    fill = "#dee5e4",
+    adjust = .2,
+    side = "bottom",
+    width = 0.6, 
+    ## set slab interval to show IQR and 95% data range
+    .width = c(.5, .95)
+  ) +
+  scale_x_continuous(limits = c(0, 58), expand = c(0, 0)) +
+  coord_cartesian(ylim = c(1, NA))+
+  scale_fill_manual('Age Onset',values = c("#fec789", "#fea352", "#eb5e28","#b63679","#2d1160"))+
+  scale_color_manual('Age Onset',values = c("#fec789", "#fea352", "#eb5e28","#b63679","#2d1160")) +
+  theme(legend.position = "bottom", legend.title = element_text(size=8)) +
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank()
+) 
+print(duration_binned_onset)
+
+ ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/duration_binned_onset.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ dev.off()
+
+# Age Onset (Bin) Plots ==========
+# In this section, we have two versions of the bar charts: stacked and grouped!
+
+## Age Onset Stacked Bar Plots ==========
+onset_stacked<- d %>%  mutate(agegroup = case_when(age_firstsx >= 0  & age_firstsx <= 11 ~ '0-11',
+                                             age_firstsx >= 12  & age_firstsx <= 17 ~ '12-17',
+                                             age_firstsx >= 18  & age_firstsx <= 25 ~ '18-25',
+                                             age_firstsx >= 26  & age_firstsx <=49 ~ '26-49',
+                                             age_firstsx >= 50  & age_firstsx <= 69 ~ '50-69',
+                                             age_firstsx >= 70  & age_firstsx <= 79 ~ '70-79',
+                                             age_firstsx >= 80   ~ '80+')) %>%
+  ggplot(aes(y = dx_group_main, fill=factor(agegroup, levels=c('0-11', '12-17', '18-25', '26-49', '50-69', '70-79', '80+')), color = factor(agegroup, levels=c('0-11', '12-17', '18-25', '26-49', '50-69', '70-79', '80+')))) +
+  geom_bar(position = position_fill(reverse = TRUE), width=.3)+
+  scale_color_manual(name = "Onset Age",values = c("#fec789", "#fea352", "#eb5e28","#b63679","#2d1160", "green", "blue"))+
+  scale_fill_manual(name = "Onset Age", values = c("#fec789", "#fea352", "#eb5e28","#b63679","#2d1160", "green", "blue"))+
+  theme(legend.position="bottom", legend.title = element_text(size=8)) +
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank()
+) 
+print(onset_stacked)
+
+ ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/onset_stacked.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ dev.off()
+
+## Age Onset Grouped Bar Plots ==========
+onset_grouped <- d %>%
+  drop_na() %>%
+  mutate(agegroup = case_when(age_firstsx >= 0  & age_firstsx <= 11 ~ '0-11',
+                                     age_firstsx >= 12  & age_firstsx <= 17 ~ '12-17',
+                                     age_firstsx >= 18  & age_firstsx <= 25 ~ '18-25',
+                                     age_firstsx >= 26  & age_firstsx <=49 ~ '26-49',
+                                     age_firstsx >= 50  & age_firstsx <= 69 ~ '50-69',
+                                     age_firstsx >= 70  & age_firstsx <= 79 ~ '70-79',
+                                     age_firstsx >= 80   ~ '80+')) %>%
+  group_by(dx_group_main) %>%
+  count(agegroup) %>%
+  group_by(dx_group_main) %>%
+  mutate(perc = n / sum(n)) %>%
+  ggplot(aes(x=agegroup, y=perc, fill=factor(agegroup, levels=c('0-11', '12-17', '18-25', '26-49', '50-69', '70-79', '80+')))) +
+  geom_bar(stat="identity", width = .9)+
+  scale_color_manual(name = "Onset Age",values = c("#fec789", "#fea352", "#eb5e28","#b63679","#2d1160", "green"))+
+  scale_fill_manual(name = "Onset Age", values = c("#fec789", "#fea352", "#eb5e28","#b63679","#2d1160", "green"))+ facet_wrap(~reorder(dx_group_main, desc(dx_group_main)), ncol=1) +
+  ggtitle("Sex (%)") + xlab("")+scale_y_continuous(labels = scales::percent, limits = c(0,1.3)) +
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank(),
+  legend.position = "bottom", legend.title = element_text(size=8)) 
+print(onset_grouped)
+
+ ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/onset_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ dev.off()
+
+```
+
+##Race
+```{r}
+# Race Plots ==========
+# In this section, we have two versions of the bar charts: stacked and grouped!
+
+## Race Stacked Bar Charts=====
+race_stacked <- d %>%
+  group_by(dx_group_main) %>%
+  mutate(dichotomized_race_ethnicity = gsub("Caucasian NOT Hispanic or Latino", "Other", bi_re )) %>%
+  ggplot(aes(y = dx_group_main, fill=dichotomized_race_ethnicity)) +
+  geom_bar(position = position_fill(reverse = TRUE), width=.3)+
+  scale_color_manual(name= "race", values = c("#c9ada7", "#7b2cbf")) +
+  scale_fill_manual(name = "Race", values = c("#c9ada7", "#7b2cbf")) +
+  ggtitle("Sex (%)") + xlab("") +
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank(),
+  legend.position = "bottom", legend.title = element_text(size=8))
+print(race_stacked)
+
+ ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/race_stacked.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ dev.off()
+
+## Race Grouped Bar Charts=====
+race_grouped <- d %>%
+  drop_na() %>%
+  group_by(dx_group_main) %>%
+  mutate(dichotomized_race_ethnicity = gsub("Caucasian NOT Hispanic or Latino", "Caucasian", bi_re )) %>%
+  count(dichotomized_race_ethnicity) %>%
+  group_by(dx_group_main) %>%
+  mutate(perc = n / sum(n)) %>%
+  ggplot(aes(x=dichotomized_race_ethnicity, y=perc, fill=dichotomized_race_ethnicity)) +
+  geom_bar(stat="identity")+
+  scale_color_manual(name= "Race", values = c("#c9ada7", "#7b2cbf"))+
+  scale_fill_manual(name = "Race", values = c("#c9ada7", "#7b2cbf"))+facet_wrap(~reorder(dx_group_main, desc(dx_group_main)), ncol=1) +
+  ggtitle("Sex (%)") + xlab("")+scale_y_continuous(labels = scales::percent, limits = c(0,1.3)) +
+  theme(axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.text.x = element_blank(),
+  legend.position = "bottom", legend.title = element_text(size=8))
+
+
+print(race_grouped)
+
+ ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/race_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ dev.off()
+
+```
+
+#Addresses
+```{r}
+#Compiles most recent address we have on record for each participant
+#Pulls from 4 sources that ask for full addresses (street, city, state, zip in individual fields)
+#Final file can be ussed for ADI calculation
+
+#Database
+add_db <- database[,c("id_participant", "address_current", "address_current_2", "address_current_3", "state_current", "zipcode_current", "address1_update1", "address2_update1", "city_update1", "state_update1", "zipcode_update1", "address1_update2", "address2_update2", "city_update2", "state_update2", "zipcode_update2", "address1_update3", "address2_update3", "city_update3", "state_update3", "zipcode_update3", "confirmed_enroll_address", "confirmed_update1", "confirmed_update2", "confirmed_update3")]
+add_db$state_current <- factor(add_db$state_current, levels = c(1,10,11,12,13,14,15,16,17,18,19,2,20,21,22,23,24,25,26,27,28,29,3,30,31,32,33,34,35,36,37,38,39,4,40,41,42,43,44,45,46,47,48,49,5,50,51,6,7,8,9,99), labels = c("AL","FL","GA","ID","IL","IN","IA","KS","KY","LA","ME","AZ","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","AR","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","CA","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","CA","WY","AK","CO","CT","DE","DC","Not Sure"))
+add1 <- add_db %>% gather(source, address1, 2,7,12,17)
+add2 <- add_db %>% gather(source, address2, 3,8,13,18)
+city <- add_db %>% gather(source, city, 4,9,14,19)
+state <- add_db %>% gather(source, state, 5,10,15,20)
+zipcode <- add_db %>% gather(source, zipcode, 6,11,16,21)
+date <- add_db %>% gather(source, date, 22,23,24,25)
+
+add_db <- cbind(add1, add2, city, state, zipcode, date)
+add_db <- add_db[,c("id_participant", "address1", "address2", "city", "state", "zipcode", "date")]
+add_db[add_db == ""] <- NA  
+add_db <- add_db %>% filter(!is.na(address1))
+add_db$source <- "database"
+
+#Legacy PQ
+add_legpq <- legacy[,c("id_participant", "street_now", "city_now", "state_now", "zipcode_now", "primary_questionnaire_timestamp")]
+add_legpq$state_now <- factor(add_legpq$state_now, levels = c(1,10,11,12,13,14,15,16,17,18,19,2,20,21,22,23,24,25,26,27,28,29,3,30,31,32,33,34,35,36,37,38,39,4,40,41,42,43,44,45,46,47,48,49,5,50,51,6,7,8,9,99, 53, 54, 55), labels = c("AL","FL","GA","ID","IL","IN","IA","KS","KY","LA","ME","AZ","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","AR","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","CA","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","CA","WY","AK","CO","CT","DE","DC","Not Sure", "US Territories", "Canada", "Outside USA"))
+add_legpq$address2 <- c("")
+colnames(add_legpq) <- c("id_participant", "address1", "city", "state", "zipcode", "date", "address2")
+add_legpq <- add_legpq[,c("id_participant", "address1", "address2", "city", "state", "zipcode", "date")]
+add_legpq$source <- "legacyPQ"
+
+
+#Longitudinal- SRO & Update
+add_long <- longitudinal[,c("id_participant_l", "street_now", "city_now", "state_now", "zipcode_now", "street_now_d06dcf", "city_now_598058", "state_now_b66f9d", "zipcode_now_4a683e", "primary_questionnaire_timestamp", "update_questionnaire_timestamp")]
+add_long$state_now <- factor(add_long$state_now, levels = c(1,10,11,12,13,14,15,16,17,18,19,2,20,21,22,23,24,25,26,27,28,29,3,30,31,32,33,34,35,36,37,38,39,4,40,41,42,43,44,45,46,47,48,49,5,50,51,6,7,8,9,99, 52, 53, 54, 55), labels = c("AL","FL","GA","ID","IL","IN","IA","KS","KY","LA","ME","AZ","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","AR","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","CA","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","CA","WY","AK","CO","CT","DE","DC","Not Sure", "HI", "US Territories", "Canada", "Outside USA"))
+add_long$state_now_b66f9d <- factor(add_long$state_now_b66f9d, levels = c(1,10,11,12,13,14,15,16,17,18,19,2,20,21,22,23,24,25,26,27,28,29,3,30,31,32,33,34,35,36,37,38,39,4,40,41,42,43,44,45,46,47,48,49,5,50,51,6,7,8,9,99, 52, 53, 54, 55), labels = c("AL","FL","GA","ID","IL","IN","IA","KS","KY","LA","ME","AZ","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","AR","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","CA","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","CA","WY","AK","CO","CT","DE","DC","Not Sure", "HI", "US Territories", "Canada", "Outside USA"))
+add1 <- add_long %>% gather(source, address1, 2,6)
+city <- add_long %>% gather(source, city, 3,7)
+state <- add_long %>% gather(source, state, 4,8)
+zipcode <- add_long %>% gather(source, zipcode, 5,9)
+date <- add_long %>% gather(source, date, 10,11)
+
+add_long <- cbind(add1, city, state, zipcode, date)
+add_long$address2 <- c("")
+add_long <- add_long[,c("id_participant_l", "address1", "address2", "city", "state", "zipcode", "date")]
+add_long[add_long == ""] <- NA  
+add_long <- add_long %>% filter(!is.na(address1))
+names(add_long)[1] <- 'id_participant'
+add_long$source <- "longitudinal"
+
+
+#COMBINE
+add_final <- rbind(add_db, add_legpq, add_long)
+add_final <- unique(add_final)
+add_final$date <- ifelse(
+    ( 
+        (is.na(add_final$date))
+    ),
+    "2000-01-01",  #puts this where conditions are met
+     add_final$date         #puts this where conditions are not met
+)
+add_final$date <- as.Date(add_final$date)
+
+add_final2 <- add_final %>% 
+  group_by(id_participant) %>%
+  slice(which.max(as.Date(date, '%Y-%m-%d')))
+
+#add_final2 <- add_final2 %>% filter((!str_detect(id_participant, "PRT23")))
+#add_final2 <- add_final2[,-c(7,8)]
+
+test <- data.frame(table(add_final2$id_participant))
+test <- test %>% filter(Freq>0)
+
+#write.csv(add_final2, "AllAddresses_06112023.csv")
+
+
+```
+
+#CCI
+```{r}
+#The following chunks synthesize CCI scores for all participants from all sources
+```
+
+##PQ & UQ
+```{r}
+#Set up
+cci_long1 <- longitudinal[,c("id_participant_l", "primary_questionnaire_timestamp", "cci_disease___1", "cci_disease___2", "cci_disease___3", "cci_disease___4", "cci_disease___5", "cci_disease___6", "cci_disease___7", "cci_disease___8", "cci_disease___9", "cci_disease___10", "cci_disease___11", "cci_disease___12", "cci_disease___13", "cci_disease___14", "cci_disease___15", "cci_disease___16", "cci_disease___17", "cci_disease___18", "cci_disease___19")]
+colnames(cci_long1) <- c("id_participant", "timestamp", "cci1", "cci2", "cci3", "cci4", "cci5", "cci6", "cci7", "cci8", "cci9", "cci10", "cci11", "cci12", "cci13", "cci14", "cci15", "cci16", "cci17", "cci18", "cci19")
+cci_long2 <- longitudinal[,c("id_participant_l", "update_questionnaire_timestamp", "cci_disease_uq___1", "cci_disease_uq___2", "cci_disease_uq___3", "cci_disease_uq___4", "cci_disease_uq___5", "cci_disease_uq___6", "cci_disease_uq___7", "cci_disease_uq___8", "cci_disease_uq___9", "cci_disease_uq___10", "cci_disease_uq___11", "cci_disease_uq___12", "cci_disease_uq___13", "cci_disease_uq___14", "cci_disease_uq___15", "cci_disease_uq___16", "cci_disease_uq___17", "cci_disease_uq___18", "cci_disease_uq___19")]
+colnames(cci_long2) <- c("id_participant", "timestamp", "cci1", "cci2", "cci3", "cci4", "cci5", "cci6", "cci7", "cci8", "cci9", "cci10", "cci11", "cci12", "cci13", "cci14", "cci15", "cci16", "cci17", "cci18", "cci19")
+
+```
+
+##COVID Baseline
+```{r}
+cci_covid <- covid[,c("id_participant_l", "covid19_baseline_timestamp", "comorbid___1", "comorbid___2", "comorbid___3", "comorbid___4", "comorbid___5", "comorbid___6", "comorbid___7", "comorbid___8", "comorbid___9", "comorbid___10", "comorbid___11", "comorbid___12", "comorbid___13", "comorbid___14", "comorbid___15", "comorbid___16", "comorbid___17", "comorbid___18", "comorbid___19")]
+colnames(cci_covid) <- c("id_participant", "timestamp", "cci1", "cci2", "cci3", "cci4", "cci5", "cci6", "cci7", "cci8", "cci9", "cci10", "cci11", "cci12", "cci13", "cci14", "cci15", "cci16", "cci17", "cci18", "cci19")
+
+```
+
+##COVID Registry
+```{r}
+cci_registry <- registry[,c("descript_study", "test_date", "cci_crf___1", "cci_crf___2", "cci_crf___3", "cci_crf___4", "cci_crf___5", "cci_crf___6", "cci_crf___7", "cci_crf___8", "cci_crf___9", "cci_crf___10", "cci_crf___11", "cci_crf___12", "cci_crf___13", "cci_crf___14", "cci_crf___15", "cci_crf___16", "cci_crf___17", "cci_crf___18", "cci_crf___19")]
+colnames(cci_registry) <- c("id_participant", "timestamp", "cci1", "cci2", "cci3", "cci4", "cci5", "cci6", "cci7", "cci8", "cci9", "cci10", "cci11", "cci12", "cci13", "cci14", "cci15", "cci16", "cci17", "cci18", "cci19")
+
+```
+
+##PASC
+```{r}
+cci_pasc <- pasc[,c("id_participant", "postacute_sequelae_of_sarscov2_timestamp", "cci___1", "cci___2", "cci___3", "cci___4", "cci___5", "cci___6", "cci___7", "cci___8", "cci___9", "cci___10", "cci___11", "cci___12", "cci___13", "cci___14", "cci___15", "cci___16", "cci___17", "cci___18", "cci___19")]
+colnames(cci_pasc) <- c("id_participant", "timestamp", "cci1", "cci2", "cci3", "cci4", "cci5", "cci6", "cci7", "cci8", "cci9", "cci10", "cci11", "cci12", "cci13", "cci14", "cci15", "cci16", "cci17", "cci18", "cci19")
+
+```
+
+##Combine & Score
+```{r}
+#combine
+cci_all <- rbind(cci_long1, cci_long2, cci_covid, cci_registry, cci_pasc)
+
+#add dob and calculate age at survey response/ test date
+demogs <- database[,c("id_participant", "dob", "subject_sex", "race", "ethnicity", "dx_group_main", "subtype_enroll")]
+demogs <- demogs %>% filter(!is.na(subject_sex))
+cci_all <- merge(cci_all, demogs, by='id_participant', all.x = TRUE)
+cci_all$dob <- as.Date(cci_all$dob)
+cci_all$timestamp <- format(as.POSIXct(cci_all$timestamp, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+cci_all$age <-round((difftime(cci_all$timestamp, cci_all$dob, units = "weeks")/52.25), digits = 2)
+  #assign the additive value per scoring guide to age
+cci_all$age2 <- ifelse(
+    ( 
+        cci_all$age<50
+    ),
+    0,
+    cci_all$age2 <- ifelse(
+    ( 
+        cci_all$age>=50 & cci_all$age<60
+    ),
+    1,
+    cci_all$age2 <- ifelse(
+    ( 
+        cci_all$age>=60 & cci_all$age<70
+    ),
+    2,
+    cci_all$age2 <- ifelse(
+    ( 
+        cci_all$age>=70 & cci_all$age<80
+    ),
+    3,
+    cci_all$age2 <- ifelse(
+    ( 
+        cci_all$age>=80 & cci_all$age<90
+    ),
+    4,
+    cci_all$age2 <- ifelse(
+    ( 
+        cci_all$age>=90 & cci_all$age<100
+    ),
+    5,
+    999
+))))))
+
+#change "yes" answers to the positive additve value according to the scoring guide- all "no" answers remain 0
+cci_all$cci1 <- as.numeric(as.character(factor(cci_all$cci1, levels = c(0,1), labels = c(0,1))))
+cci_all$cci2 <- as.numeric(as.character(factor(cci_all$cci2, levels = c(0,1), labels = c(0,1))))
+cci_all$cci3 <- as.numeric(as.character(factor(cci_all$cci3, levels = c(0,1), labels = c(0,1))))
+cci_all$cci4 <- as.numeric(as.character(factor(cci_all$cci4, levels = c(0,1), labels = c(0,1))))
+cci_all$cci5 <- as.numeric(as.character(factor(cci_all$cci5, levels = c(0,1), labels = c(0,1))))
+cci_all$cci6 <- as.numeric(as.character(factor(cci_all$cci6, levels = c(0,1), labels = c(0,1))))
+cci_all$cci7 <- as.numeric(as.character(factor(cci_all$cci7, levels = c(0,1), labels = c(0,1))))
+cci_all$cci8 <- as.numeric(as.character(factor(cci_all$cci8, levels = c(0,1), labels = c(0,1))))
+cci_all$cci9 <- as.numeric(as.character(factor(cci_all$cci9, levels = c(0,1), labels = c(0,1))))
+cci_all$cci10 <- as.numeric(as.character(factor(cci_all$cci10, levels = c(0,1), labels = c(0,1))))
+cci_all$cci11 <- as.numeric(as.character(factor(cci_all$cci11, levels = c(0,1), labels = c(0,2))))
+cci_all$cci12 <- as.numeric(as.character(factor(cci_all$cci12, levels = c(0,1), labels = c(0,2))))
+cci_all$cci13 <- as.numeric(as.character(factor(cci_all$cci13, levels = c(0,1), labels = c(0,2))))
+cci_all$cci14 <- as.numeric(as.character(factor(cci_all$cci14, levels = c(0,1), labels = c(0,2))))
+cci_all$cci15 <- as.numeric(as.character(factor(cci_all$cci15, levels = c(0,1), labels = c(0,2))))
+cci_all$cci16 <- as.numeric(as.character(factor(cci_all$cci16, levels = c(0,1), labels = c(0,2))))
+cci_all$cci17 <- as.numeric(as.character(factor(cci_all$cci17, levels = c(0,1), labels = c(0,3))))
+cci_all$cci18 <- as.numeric(as.character(factor(cci_all$cci18, levels = c(0,1), labels = c(0,3))))
+cci_all$cci19 <- as.numeric(as.character(factor(cci_all$cci19, levels = c(0,1), labels = c(0,6))))
+
+#sum all fields to get the total score
+cci_all$cci_total <- cci_all$cci1 + cci_all$cci2 + cci_all$cci3 + cci_all$cci4 + cci_all$cci5 + cci_all$cci6 + cci_all$cci7 + cci_all$cci8 + cci_all$cci9 + cci_all$cci10 + cci_all$cci11 + cci_all$cci12 + cci_all$cci13 + cci_all$cci14 + cci_all$cci15 + cci_all$cci16 + cci_all$cci17 + cci_all$cci18 + cci_all$cci19 + cci_all$age2
+
+#clean df
+cci_all2 <- cci_all[,c("id_participant", "subject_sex", "race", "ethnicity", "dx_group_main", "subtype_enroll", "cci_total")]
+cci_all2 <- cci_all2 %>% filter(!is.na(cci_total)) #3092 total CCI scores
+cci_all2 <- unique(cci_all2) #1662 unique CCI scores
+
+sum(table(unique(cci_all2$id_participant))) #1451 unique participants
+test <- data.frame(table(cci_all2$id_participant))
+test <- test %>% filter(Freq>1) #199 people with more than 1 score
+
+#earliest score
+cci_earliest <- cci_all[,c("id_participant", "subject_sex", "race", "ethnicity", "dx_group_main", "subtype_enroll", "cci_total", "timestamp")]
+cci_earliest <- cci_earliest %>% filter(!is.na(cci_total))
+cci_earliest <- cci_earliest %>% 
+  group_by(id_participant) %>%
+  slice(which.min(as.Date(timestamp, '%Y-%m-%d')))
+#cci_earliest <- cci_earliest %>% filter((!str_detect(timestamp, "2023")))
+write.csv(cci_earliest, "cci_earliest.csv")
+
+#most recent score
+cci_recent <- cci_all[,c("id_participant", "subject_sex", "race", "ethnicity", "dx_group_main", "subtype_enroll", "cci_total", "timestamp")]
+cci_recent <- cci_recent %>% filter(!is.na(cci_total))
+cci_recent <- cci_recent %>% 
+  group_by(id_participant) %>%
+  slice(which.max(as.Date(timestamp, '%Y-%m-%d')))
+#cci_recent <- cci_recent %>% filter((!str_detect(timestamp, "2023")))
+
+
+```
+
+##Visualization
+```{r}
+hist(cci_all2$cci_total)
+hist(cci_earliest$cci_total)
+hist(cci_recent$cci_total)
+
+#use earliest as the example to go off of what we have at baseline enrollment
+cci_earliest$cci_total <- factor(cci_earliest$cci_total)
+col <- c("#EFEDF5", "#DADAEB", "#BCBDDC", "#9E9AC8", "#807DBA", "#6A51A3", "#54278F", "#3F007D", "#EFEDF5")
+cci_plot <- ggplot(subset(cci_earliest, !is.na(cci_total)), aes(x = cci_total, fill = cci_total)) + 
+  geom_bar(show.legend = FALSE) + xlab("Comorbidity Score") + ylab("Number of Participants") + 
+  scale_fill_manual(values = col) + 
+  theme_linedraw() + 
+  labs(title = "Charlson Comorbidity Index") + theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.title.x = element_text(margin = margin(t = 15)), axis.title.y = element_text(margin = margin(r=15)))
+
+#ggsave("/Users/jeanninejacokes/Desktop/MS Clinic/cci_plot.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+
+```
