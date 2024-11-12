@@ -29,7 +29,7 @@ library(gtsummary)
 
 #Import files
 ```{r}
-setwd("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/XIA LAB/PROMOTE Materials/Data Description Paper/Source Files/2024-11-4/")
+setwd("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/XIA LAB/PROMOTE Materials/Data Description Paper/Source Files/2024-11-4/")
 
 database <- read.csv("PROMOTEDatabase.csv") #Export of the whole database project
 database <- database %>% filter(str_detect(id_participant, "PRT"))
@@ -405,7 +405,7 @@ sex_age_density2 <- ggplot(d, aes(y = dx_group_main, x = age_enroll, fill=subjec
 
 print(sex_age_density2)
 
-ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_age_density.png", plot = last_plot(), width = 6.67, height = 7.2, units = "in")
+ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_age_density.png", plot = last_plot(), width = 6.67, height = 7.2, units = "in")
 dev.off()
 
 
@@ -434,7 +434,7 @@ sex_onset_density<- ggplot(d, aes(x = age_firstsx, y = dx_group_main, fill=subje
   axis.text.x = element_blank()) 
 print(sex_onset_density)
 
- ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_onset_density.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_onset_density.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
  dev.off()
 
 ```
@@ -457,7 +457,7 @@ sex_bar <- ggplot(d, aes(y = dx_group_main, fill=subject_sex)) +
 ) 
 print(sex_bar)
 
- ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_bar.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_bar.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
 dev.off()
 
 ## Sex Grouped Bar ========== (displays sex by subject group with %ages)
@@ -477,7 +477,7 @@ sex_grouped <- d %>%
 ) 
 print(sex_grouped)
 
- ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/sex_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
  dev.off()
 
 ```
@@ -510,7 +510,7 @@ duration_type_density<- ggplot(d, aes(x = dxdur_enroll, y = dx_group_main, fill=
 ) 
 print(duration_type_density)
 
- ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/duration_type_density.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/duration_type_density.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
  dev.off()
 
 ```
@@ -535,7 +535,7 @@ dmt_stacked<- d %>%
 ) 
 print(dmt_stacked)
 
- ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/dmt_stacked.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/dmt_stacked.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
  dev.off()
 
 ## DMT grouped Bar Charts ======
@@ -556,7 +556,7 @@ dmt_grouped <- d %>%
   legend.position = "bottom", legend.title = element_text(size=8))
 print(dmt_grouped)
 
-ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/dmt_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/dmt_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
 dev.off()
 
 ```
@@ -596,7 +596,7 @@ duration_binned_onset<- ggplot(age_onset_binned, aes(x = dxdur_enroll, y = dx_gr
 ) 
 print(duration_binned_onset)
 
- ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/duration_binned_onset.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/duration_binned_onset.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
  dev.off()
 
 # Age Onset (Bin) Plots ==========
@@ -621,7 +621,7 @@ onset_stacked<- d %>%  mutate(agegroup = case_when(age_firstsx >= 0  & age_first
 ) 
 print(onset_stacked)
 
- ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/onset_stacked.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/onset_stacked.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
  dev.off()
 
 ## Age Onset Grouped Bar Plots ==========
@@ -649,7 +649,7 @@ onset_grouped <- d %>%
   legend.position = "bottom", legend.title = element_text(size=8)) 
 print(onset_grouped)
 
- ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/onset_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/onset_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
  dev.off()
 
 ```
@@ -674,7 +674,7 @@ race_stacked <- d %>%
   legend.position = "bottom", legend.title = element_text(size=8))
 print(race_stacked)
 
- ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/race_stacked.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/race_stacked.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
  dev.off()
 
 ## Race Grouped Bar Charts=====
@@ -698,7 +698,7 @@ race_grouped <- d %>%
 
 print(race_grouped)
 
- ggsave("/Users/shruthivenkatesh/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/race_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
+ ggsave("/Users/username/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SHARED PRT Data Description/2024-11-14 Figures/Figure 2/race_grouped.png", plot = last_plot(), width = 6.67, height = 4.5, units = "in")
  dev.off()
 
 ```
