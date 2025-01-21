@@ -1,0 +1,84 @@
+---
+title: "CSF Query"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(stringr)
+library(tidyr)
+library(plyr)
+library(dplyr)
+library(lubridate)
+library(data.table)
+library(gtsummary)
+
+#This code runs a CSF sample query for all PROMOTE participants
+
+#Finds list of participants with a CSF sample and their demographics
+
+#CHANGE FILE PATHS
+
+```
+
+#Import Files
+```{r}
+setwd("") #Set working directory
+
+database <- read.csv("database.csv") #Export of the whole PROMOTE database project
+database <- database %>% filter(!str_detect(id_participant, "_x"))
+```
+
+#CSF Samples
+```{r}
+csf <- database[,c("id_participant", "csf_date", "csf_storage", "large_csf", "subtype_csf", "csf_dmt_type")]
+csf <- csf %>% filter(str_detect(csf_storage, "-80"))
+sum(table(unique(csf$id_participant))) #129 unique participants, 130 samples
+
+```
+
+#Demographics
+```{r}
+demogs <- database[,c("id_participant", "dob", "subject_sex", "race", "ethnicity", "date_firstsx", "date_msdx")]
+demogs <- demogs %>% filter(subject_sex>0)
+csf2 <- merge(demogs, csf, by = 'id_participant', all.y = TRUE)
+
+#Calculate age and disease duration
+csf2$csf_date <- as.Date(csf2$csf_date)
+csf2$dob <- as.Date(csf2$dob)
+csf2$csf_date <- as.Date(csf2$csf_date)
+csf2$date_firstsx <- as.Date(csf2$date_firstsx)
+csf2$age_collection <- as.numeric(difftime(csf2$csf_date, csf2$dob, units="weeks")/52.25)
+csf2$disease_duration <- as.numeric(difftime(csf2$csf_date, csf2$date_firstsx, units="weeks")/52.25)
+
+#relabel fields
+csf2$subject_sex <- factor(csf2$subject_sex, levels = c(1,2), labels = c("Male", "Female"))
+csf2$race <- factor(csf2$race, levels = c(1,2,3,4,5,99), labels = c("Black", "American Indian or Alaska Native", "Asian", "Caucasian", "Multi-racial", "Not Sure"))
+csf2$ethnicity <- factor(csf2$ethnicity, levels = c(1,2,99), labels = c("Hispanic or Latino", "Non-Hispanic or Latino", "Not Sure"))
+csf2 <- csf2 %>%
+  mutate(subtype_csf = case_when(
+    subtype_csf %in% c(1, 2, 3, 4, 5) ~ factor(subtype_csf, levels = c(1, 2, 3, 4, 5), labels = c("CIS", "RIS", "RRMS", "SPMS", "PPMS")),
+    TRUE ~ "Not MS"  # Any other values
+  ))
+csf2$subtype_csf <- factor(csf2$subtype_csf, levels = c("CIS", "RIS", "RRMS", "SPMS", "PPMS", "Not MS"))
+#csf2$subtype_csf <- factor(csf2$subtype_csf, levels = c(1,2,3,4,5), labels = c("CIS", "RIS", "RRMS", "SPMS", "PPMS"))
+csf2$csf_dmt_type <- factor(csf2$csf_dmt_type, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,99), labels = c("Aubagio", "Avonex", "Betaseron", "Copaxone", "Extavia", "Gilenya", "Novantrone", "Rebif", "Tecfidera", "Tysabri", "Other", "Lemtrada",  "Ocrevus", "Plegridy", "Zinbryta", "Rituxan", "Mavenclad", "Mayzent", "Vumerity", "Zeposia", "Kesimpta", "Soliris", "Uplizna", "Enspryng", "Ponvory", "Bafiertam", "None"))
+
+csf2 <- csf2[,c("id_participant", "dob", "age_collection", "subject_sex", "race", "ethnicity", "csf_date", "subtype_csf", "disease_duration", "csf_dmt_type")]
+
+#generate table
+select(csf2, c(age_collection, subject_sex, race, ethnicity, subtype_csf, disease_duration, csf_dmt_type)) %>%
+    tbl_summary(statistic = list(c(age_collection, disease_duration) ~ "{mean} ({sd})"),
+                digits = list(c(age_collection, disease_duration) ~ 2),
+                label = list(age_collection ~ "Age (years, mean ± SD)", disease_duration ~ "Disease Duration (years, mean ± SD)", subject_sex ~ "Sex (n, % of cohort)", race ~ "Race (n, % of cohort)", ethnicity ~ "Ethnicity (n, % of cohort)", subtype_csf ~ "Disease Subtype (n, % of cohort)", csf_dmt_type ~ "DMT (n, % of cohort)")
+  ) %>%
+  modify_footnote(update = everything() ~ NA)
+
+write.csv(csf2, "csf.csv")
+
+
+```
+
+
