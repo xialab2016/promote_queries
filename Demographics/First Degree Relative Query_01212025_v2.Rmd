@@ -1,0 +1,128 @@
+---
+title: "relative query"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r}
+setwd("") #Set  your working directory
+
+library(tidyverse)
+library(dplyr)
+database <- read.csv("database_01_21_25.csv") #Upload PROMOTE Database
+legacy_pq <- read.csv("PQ_SRO_Legacy.csv") #Upload Legacy for PQ and SRO
+long1 <- read.csv("long1.csv") #Upload first longitudinal project
+long2 <- read.csv("long2.csv") #Upload second longitudinal project
+long <- rbind(long1, long2)
+long
+legacy_pq
+```
+
+
+```{r}
+#changing as of 5.28.24 to be inclusive of all participants regardless of their subject group, at the end of the query will filter down to just MS participants as well (but leaving this named ms, don't be misled)
+ms <- database %>% 
+  select(id_participant, dx_group_main) %>% 
+  filter(!is.na(dx_group_main)) %>% 
+  dplyr::rename(id_participant_l = id_participant) %>% 
+  unique()
+ms
+```
+#primary questionnaire responses with "yes" to having at least one 1st degree relative with MS
+```{r}
+rel_ms <- long %>% 
+  select(id_participant_l, fmhx_ms, fmhx_ms_relation___1, fmhx_ms_relation___2, fmhx_ms_relation___5, fmhx_ms_relation___6, fmhx_ms_bro, fmhx_ms_sis)
+rel_ms$fmhx_ms_bro[is.na(rel_ms$fmhx_ms_bro)] <- 0
+rel_ms$fmhx_ms_sis[is.na(rel_ms$fmhx_ms_sis)] <- 0
+xxx <- rel_ms %>% filter(fmhx_ms == 1) %>% filter(fmhx_ms_relation___1 == 1 | fmhx_ms_relation___2 == 1 | fmhx_ms_relation___5 == 1 | fmhx_ms_relation___6 == 1) %>% 
+  mutate(total1_rel_ms = (fmhx_ms_relation___1 + fmhx_ms_relation___2 + fmhx_ms_bro + fmhx_ms_sis))
+ms_xxx <- merge(xxx, ms, by = "id_participant_l", all.x = TRUE)
+ms_xxx <- ms_xxx%>% select(id_participant_l, total1_rel_ms, dx_group_main)
+ms_xxx
+#total num participants who have first degree relative from PQ: 95
+#total num participants who have first degree relative from PQ, MS: 74
+```
+
+```{r}
+#legacy questionnaire responses with "yes" to having at least one 1st degree relative with MS
+rel_ms <- legacy_pq %>% 
+  select(redcap_survey_identifier, fmhx_ms, fmhx_ms_relation___1, fmhx_ms_relation___2, fmhx_ms_relation___5, fmhx_ms_relation___6, fmhx_ms_bro, fmhx_ms_sis) %>% 
+  dplyr::rename(id_participant_l = redcap_survey_identifier)
+rel_ms$fmhx_ms_bro[is.na(rel_ms$fmhx_ms_bro)] <- 0
+rel_ms$fmhx_ms_sis[is.na(rel_ms$fmhx_ms_sis)] <- 0
+rel_ms$id_participant_l[rel_ms$id_participant_l == ""] <- NA
+rel_ms <- rel_ms %>% drop_na(id_participant_l)
+yyy <- rel_ms %>% filter(fmhx_ms == 1) %>% filter(fmhx_ms_relation___1 == 1 | fmhx_ms_relation___2 == 1 | fmhx_ms_relation___5 == 1 | fmhx_ms_relation___6 == 1) %>% 
+  mutate(total1_rel_ms = (fmhx_ms_relation___1 + fmhx_ms_relation___2 + fmhx_ms_bro + fmhx_ms_sis)) %>% select(id_participant_l, total1_rel_ms)
+ms_yyy <- merge(yyy, ms, by = "id_participant_l", all.x = TRUE)
+ms_yyy <- ms_yyy%>% select(id_participant_l, total1_rel_ms, dx_group_main)
+ms_yyy
+#total num participants who have first degree relative from Legacy PQ: 59
+#total num participants who have first degree relative from Legacy PQ, MS: 58
+```
+```{r}
+all_rel <- rbind(ms_xxx, ms_yyy) #binding together participants from PQ and Legacy
+all_rel[all_rel == ""] <- NA
+all_rel <- all_rel %>% 
+  drop_na(id_participant_l) %>% 
+  unique() %>% 
+  select(-total1_rel_ms) %>% 
+  unique()
+all_rel
+```
+
+```{r}
+#pulling people we've marked as being a first degree relative in the database
+dataa <- database %>% 
+  select(id_participant, first_deg_rel_ms, dx_group_main) %>% 
+  filter(first_deg_rel_ms == 1) %>% 
+  unique() %>% 
+  select(id_participant, dx_group_main) %>% 
+  dplyr::rename(id_participant_l = id_participant) %>% 
+  unique()
+dataa
+```
+
+```{r}
+#merging this with the PQ and Legacy list
+fish2 <- rbind(all_rel, dataa)
+fish <- fish2 %>% 
+  unique() %>% 
+  filter(dx_group_main == 2)
+fish #this contains all MS participants that are first deg relatives of someone with MS
+fish2 #this contains all participants that are first deg relatives of someone with MS
+
+#export whichever you need in the form of a .csv file
+write.csv(fish, "ms_relative_of_ms.csv")
+write.csv(fish2, "relative_of_ms.csv")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
