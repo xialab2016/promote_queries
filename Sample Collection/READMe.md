@@ -16,6 +16,10 @@
    
 3. Plasma
 
+   Version 2: 2025-01-21
+
+   We updated the queries to reflect the new diagnosis status classification on REDCap.
+
    Version 1: 2024-04-15
 
    Finds list of participants with plasma sample and their demographics
