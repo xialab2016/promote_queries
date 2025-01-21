@@ -68,6 +68,10 @@
    
 9. Cerebrospinal fluid (CSF)
 
+   Version 2: 2025-01-21
+
+   We updated the queries to reflect the new diagnosis status classification on REDCap.
+   
    Version 1: 2024-04-02
 
    Finds demographic information and dates of all CSF samples collected in the PROMOTE cohort
@@ -76,7 +80,7 @@
 
    Output: Table of demographic summary of participants who have donated CSF samples, CSV file containing all CSF sample dates with the demographics of the donating participant.
 
-10. Discontinuation Query
+11. Discontinuation Query
 
    Version 1: 2024-06-05
 
