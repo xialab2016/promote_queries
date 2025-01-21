@@ -16,6 +16,10 @@
 
 3. Multiple sclerosis rating scale, revised (MSRS-R)
 
+   Version 2: 2025-01-21
+
+   Adjusts queries for additional MSRS-R fields that have been added to REDCap (30 MSRS-R score fields now available)
+
    Version 1: 2024-04-03
 
    Finds MSRS-R values and mediam scores per year for all PROMOTE participants.
@@ -24,7 +28,7 @@
 
    Output: CSV file with all MSRSR scores (and subscores), histogram of all MSRSR scores, histogram of most recent MSRSR scores, CSV file with most recent MSRSR scores, histogram of earliest MSRSR scores, CSV file with earliest MSRSR scores, histogram of difference in days between two consecutive scores for participants with at least 2 MSRSR scores, CSV file with median score from all years. 
 
-4. Bladder Control Scale (BLCS) & Bowel Control Scale (BWCS)
+5. Bladder Control Scale (BLCS) & Bowel Control Scale (BWCS)
 
    Version 1: 2024-04-02
 
@@ -34,7 +38,7 @@
 
    Output: Histogram of all total BLCS scores, histogram of all total BWCS scores. CSV files of all BLCS scores, CSV file of all BWCS scores.
 
-5. Center for Epidemiological Studies-Depression (CESD)
+6. Center for Epidemiological Studies-Depression (CESD)
 
    Version 1: 2024-04-02
 
@@ -44,7 +48,7 @@
 
    Output: Histogram of all total CESD scores, histogram of all earliest total CESD scores, CSV file of all CESD scores.
 
-6. Functional Assessment of Multiple Sclerosis (FAMS)
+7. Functional Assessment of Multiple Sclerosis (FAMS)
 
    Version 1: 2024-04-09
 
@@ -54,7 +58,7 @@
 
    Output: CSV file with FAMS total scores and subscores for all PROMOTE participants, histograms of all total scores/subscores, plot with number of FAMS survey responses over time, histogram of earliest FAMS scores
 
-7. Impact of Visual-Impairment (IVIS)
+8. Impact of Visual-Impairment (IVIS)
 
    Version 1: 2024-04-09
 
@@ -64,7 +68,7 @@
 
    Output: CSV file with IVIS scores and subscores for all PROMOTE participants, histogram of IVIS total scores
 
-8. Leisure
+9. Leisure
 
    Version 1: 2024-04-09
 
@@ -74,7 +78,7 @@
 
    Output: CSV file with all Leisure scores (and ages), histogram of all leisure subscores and total scores in young 20's, histogram of all leisure subscores and total scores for most current response, histogram of all leisure subscores and total scores
 
-9. Loneliness
+10. Loneliness
    
    Version 1: 2024-04-09
 
