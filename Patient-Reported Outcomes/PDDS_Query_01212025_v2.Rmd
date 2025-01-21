@@ -1,0 +1,502 @@
+---
+title: "PDDS_MSRSR_Query"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(data.table)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(tidyr)
+library(ggpubr)
+
+
+
+#Finds PDDS values and median scores per year for all PROMOTE participants
+  #Also finds EDSS values stored in the PROMOTEDatabase
+
+#Files used: PROMOTEDatabase, PROMOTE Longitudinal, Legacy, Missing IDs, Legacy SNQ, sensor, covid, vaccine, pre/pro
+
+#CHANGE FILE PATHS
+
+```
+
+#Import files
+```{r}
+database <- read.csv("database_01_21_25.csv") #Export of the whole database project
+database <- database %>% filter(str_detect(id_participant, "PRT"))
+database <- database %>% filter(!str_detect(id_participant, "_x"))
+
+long1 <- read.csv("long1.csv") 
+long2 <- read.csv("long2.csv") 
+long <- rbind(long1, long2) 
+longitudinal <- long #Combined longitudinal projects
+longitudinal <- longitudinal %>% filter(!str_detect(id_participant_l, "_x"))
+
+legacy <- read.csv("PQ_SRO_Legacy.csv") #Export of the whole PQ/SRO Legacy project
+missingID <- read.csv("MissingIdentifiers.csv") #Missing ID reference file
+legacy <- (merge(missingID, legacy, by = 'record_id',  all.y = TRUE))
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+legacy$id_participant<- apply( legacy[ , c(2:3) ] , 1 , paste_noNA , sep=sep)
+
+snq <- read.csv("Legacy_SNQ.csv") #Export of the whole PNQ Legacy project
+
+sensor <- read.csv("Sensor.csv") #Export of the whole sensor project
+
+covid <- read.csv("covid_long.csv") #Export of the whole original covid project
+
+vaccine <- read.csv("Vaccine_long.csv") #Export of the while covid vaccine project
+
+prepro <- read.csv("PrePro.csv") #Export of the whole pre/probiotic project
+
+pasc <-  read.csv("PASC.csv") #Export of the whole pasc project
+
+```
+
+#PDDS
+##EHR
+```{r}
+#Database history
+pdds_hx <-  database[,c("id_participant", "pdds_number", "pdds_date_1", "pdds_value_1", "pdds_date_2", "pdds_value_2", "pdds_date_3", "pdds_value_3", "pdds_date_4", "pdds_value_4", "pdds_date_5", "pdds_value_5", "pdds_date_6", "pdds_value_6", "pdds_date_7", "pdds_value_7", "pdds_date_8", "pdds_value_8", "pdds_date_9", "pdds_value_9", "pdds_date_10", "pdds_value_10", "pdds_date_11", "pdds_value_11", "pdds_date_12", "pdds_value_12", "pdds_date_13", "pdds_value_13", "pdds_date_14", "pdds_value_14", "pdds_date_15", "pdds_value_15", "pdds_date_16", "pdds_value_16", "pdds_date_17", "pdds_value_17", "pdds_date_18", "pdds_value_18", "pdds_date_19", "pdds_value_19", "pdds_date_20", "pdds_value_20", "pdds_date_21", "pdds_value_21", "pdds_date_22", "pdds_value_22", "pdds_date_23", "pdds_value_23", "pdds_date_24", "pdds_value_24", "pdds_date_25", "pdds_value_25", "pdds_date_26", "pdds_value_26", "pdds_date_27", "pdds_value_27", "pdds_date_28", "pdds_value_28", "pdds_date_29", "pdds_value_29", "pdds_date_30", "pdds_value_30")]
+pdds_hx <- pdds_hx %>% filter(!is.na(pdds_number))
+
+pdds_hxScore <- pdds_hx %>% gather(scoreNumber, score, 4,6,8,10,12,14,16,18,20,22,24,26,28,30, 32,34,36,38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62)
+pdds_hxScore <- pdds_hxScore[,c("id_participant", "scoreNumber", "score")]
+pdds_hxDate <- pdds_hx %>% gather(dateNumber, date, 3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61)
+pdds_hxDate <- pdds_hxDate[,c("id_participant", "dateNumber", "date")]
+
+pdds_hx <- cbind(pdds_hxDate, pdds_hxScore)
+pdds_hx <- pdds_hx[,c("id_participant", "date", "score")]
+pdds_hx <- pdds_hx %>% filter(!is.na(score))
+
+```
+#above chunk of code is adjusted to get first 30 pdds scores
+
+##Blood samples
+```{r}
+pdds_blood <- database[,c("id_participant", "blood1_date", "blood1_pddsv2")]
+
+pdds_blood <- pdds_blood %>% filter(!is.na(blood1_pddsv2))
+
+names(pdds_blood)[2] <- 'date'
+names(pdds_blood)[3] <- 'score'
+
+```
+
+##Stool samples
+```{r}
+pdds_stool <- database[,c("id_participant", "stool0a_collection_date", "stool0b_collection_date", "collection1a_date", "collection1b_date", "stool_pddsv2_date", "stool_pddsv2")]
+
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+pdds_stool$date <- apply( pdds_stool[ , c(2:6) ] , 1 , paste_noNA , sep=sep)
+
+pdds_stool <- pdds_stool[,c("id_participant", "date", "stool_pddsv2")]
+pdds_stool <- pdds_stool %>% filter(!is.na(stool_pddsv2))
+pdds_stool$date <- sub("\\,.*", "", pdds_stool$date)
+pdds_stool <- pdds_stool %>% filter(str_detect(date, "20"))
+
+names(pdds_stool)[3] <- 'score'
+
+```
+
+##CSF samples
+```{r}
+pdds_csf <- database[,c("id_participant", "csf_date", "csf_pddsv2")]
+
+pdds_csf <- pdds_csf %>% filter(!is.na(csf_pddsv2))
+
+names(pdds_csf)[2] <- 'date'
+names(pdds_csf)[3] <- 'score'
+
+```
+
+##SRO-Legacy
+```{r}
+#legacy SRO
+pddsLeg <- legacy[,c("id_participant", "promote_self_reported_outcomes_timestamp", "pdds")]
+names(pddsLeg)[2] <- 'date'
+pddsLeg <- pddsLeg %>% filter(str_detect(date, "20"))
+pddsLeg <- pddsLeg %>% filter((!str_detect(pdds, "U")))
+names(pddsLeg)[3] <- 'score'
+
+
+```
+
+##SRO & Update- Long1&2
+```{r}
+#longitudinal SRO & Update
+pddsSROUpd <- longitudinal[,c("id_participant_l", "promote_self_reported_outcomes_timestamp", "pddsv2", "update_questionnaire_timestamp", "pddsv2_4d3bcb")]
+pddsSROUpdDate <- pddsSROUpd %>% gather(dateNumber, date, 2,4)
+pddsSROUpdScore <- pddsSROUpd %>% gather(scoreNumber, score, 3,5)
+pddsSROUpd <- cbind(pddsSROUpdDate, pddsSROUpdScore)
+names(pddsSROUpd)[1] <- 'id_participant'
+
+pddsSROUpd <- pddsSROUpd[,c("id_participant", "date", "score")]
+pddsSROUpd <- pddsSROUpd %>% filter(!is.na(score))
+pddsSROUpd <- pddsSROUpd %>% filter(str_detect(date, "20"))
+
+```
+
+##Outcomes
+```{r}
+pddsOut <- longitudinal[,c("id_participant_l", "outcome_measures_timestamp", "pddsv2_outcomes")]
+names(pddsOut)[2] <- 'date'
+pddsOut <- pddsOut %>% filter(str_detect(date, "20"))
+names(pddsOut)[1] <- 'id_participant'
+names(pddsOut)[3] <- 'score'
+
+```
+
+##Social network legacy
+```{r}
+#legacy SNQ
+pddsSNQ <- snq[,c("redcap_survey_identifier", "social_network_questionnaire_timestamp","social_pdds")]
+pddsSNQ <- pddsSNQ %>% filter(str_detect(social_network_questionnaire_timestamp, "20"))
+pddsSNQ <- pddsSNQ %>% filter(str_detect(redcap_survey_identifier, "PRT"))
+names(pddsSNQ)[1] <- 'id_participant'
+names(pddsSNQ)[2] <- 'date'
+names(pddsSNQ)[3] <- 'score'
+
+
+```
+
+##Sensor- monthly
+```{r}
+#sensor monthly
+pddsSensor <- sensor[,c("record_id", "monthlyq_timestamp", "pddsv2")]
+pddsSensor <- pddsSensor %>% filter(!str_detect(record_id, "_0"))
+pddsSensor <- pddsSensor %>% filter(str_detect(monthlyq_timestamp, "20"))
+pddsSensor <- pddsSensor %>% filter(!is.na(pddsv2))
+names(pddsSensor)[1] <- 'id_participant'
+names(pddsSensor)[2] <- 'date'
+names(pddsSensor)[3] <- 'score'
+
+```
+
+##COVID-baseline & quarterly
+```{r}
+#COVID long, baseline + quarterly
+  #Baseline
+pddsCovid <- covid[,c("id_participant_l", "covid19_baseline_timestamp", "pddsv2_baseline", "covid19_quarterly_timestamp", "pddsv2_3m")]
+pdds_CovidDate <- pddsCovid %>% gather(dateNumber, date, 2,4)
+pdds_CovidScore <- pddsCovid %>% gather(scoreNumber, score, 3,5)
+pddsCovid <- cbind(pdds_CovidDate, pdds_CovidScore)
+names(pddsCovid)[1] <- 'id_participant'
+pddsCovid <- pddsCovid[,c("id_participant", "date", "score")]
+pddsCovid <- pddsCovid %>% filter(!is.na(score))
+
+```
+
+##COVID vaccine
+```{r}
+#COVID vaccine
+pddsVaccine <- vaccine[,c("id_participant_l", "covid19_vaccine_questions_timestamp", "pddsv2_outcomes")]
+pddsVaccine <- pddsVaccine %>% filter(str_detect(covid19_vaccine_questions_timestamp, "20"))
+pddsVaccine <- pddsVaccine %>% filter(!is.na(pddsv2_outcomes))
+names(pddsVaccine)[1] <- 'id_participant'
+names(pddsVaccine)[2] <- 'date'
+names(pddsVaccine)[3] <- 'score'
+```
+
+##Prebiotic
+```{r}
+pddsPrePro <- prepro[,c("record_id", "promote_id", "v1_survey_timestamp", "v2_survey_timestamp", "v3_survey_timestamp", "v4_survey_timestamp", "v5_survey_timestamp", "msrsr_and_pdds_questionnaire_timestamp", "pdds")]
+pddsPrePro <- pddsPrePro %>%
+  group_by(record_id) %>%
+  dplyr::mutate(promote_id = first(promote_id))
+
+
+paste_noNA <- function(x,sep=", ") {
+gsub(", " ,sep, toString(x[!is.na(x) & x!="" & x!="NA"] ) ) }
+sep=", "
+pddsPrePro$date <- apply( pddsPrePro[ , c(3:8) ] , 1 , paste_noNA , sep=sep)
+
+pddsPrePro <- pddsPrePro %>% filter(!is.na(pdds))
+names(pddsPrePro)[2] <- 'id_participant'
+names(pddsPrePro)[9] <- 'score'
+pddsPrePro <- pddsPrePro[,c("id_participant", "date", "score")]
+
+
+```
+
+##PASC
+```{r}
+pasc <- pasc %>% filter(str_detect(id_participant, "PRT"))
+
+pddsPASC <- pasc[,c("id_participant", "covid_date1", "pdds_precovid", "postacute_sequelae_of_sarscov2_timestamp", "pdds_current")]
+pddsPASC_date <- pddsPASC %>% gather(dateType, date, 2,4)
+pddsPASC_date <- pddsPASC_date[,c(1,4,5)]
+
+pddsPASC_score <- pddsPASC %>% gather(scoreType, score, 3,5)
+pddsPASC_score <- pddsPASC_score[,c(1,4,5)]
+
+pddsPASC2 <- cbind(pddsPASC_date, pddsPASC_score)
+pddsPASC2 <- pddsPASC2[,c(1,3,6)]
+
+```
+
+
+##Combine all PDDS
+```{r}
+pdds_all <- rbind(pdds_hx, pdds_blood, pdds_stool, pdds_csf, pddsLeg, pddsSROUpd, pddsOut, pddsSNQ, pddsSensor, pddsCovid, pddsVaccine, pddsPASC2, pddsPrePro)
+  #remove pddsCovid for AR-PDDS score compilation
+pdds_all <- pdds_all %>% filter(str_detect(date, "20"))
+pdds_all <- pdds_all %>% filter(!is.na(score))
+pdds_all <- pdds_all %>% filter(score!=9)
+pdds_all <- unique(pdds_all)
+
+pdds_all$score <- as.numeric(pdds_all$score)
+pdds_all$date <- as.Date(pdds_all$date)
+  #filter for scores through 2022 for the data desc paper
+pdds_all <- pdds_all %>% filter(str_detect(id_participant, "PRT"))
+  #filter out bad dates- greater than today
+pdds_all <- pdds_all %>% filter(!date>Sys.Date())
+
+
+test <- data.frame(table(pdds_all$id_participant))
+test <- test %>% filter(Freq>0)
+  #2731 participants with scores (7/27/2024)
+mean(test$Freq) #7.4 scores per participant
+sd(test$Freq)
+
+```
+
+```{r}
+#only run if you need to export
+pdds_all
+
+write.csv(pdds_all, "pdds_all.csv")
+```
+
+
+```{r}
+#OPTIONAL: Combining PDDS file with EHR Linkage ID file
+
+linkagefile <- read.csv("ms_promote_linked_20240522.csv")
+linkagefile
+linkagefile <- linkagefile %>%
+  select(PROMOTE_ID, PATIENT_STUDY_ID) %>%
+  rename(id_participant = PROMOTE_ID)
+linkagefile
+
+prt_linkage <- merge(pdds_all, linkagefile, by = "id_participant", all.x = TRUE)
+prt_linkage
+
+#write.csv(prt_linkage, "all_pdds_linkage_20241024.csv")
+```
+
+
+#PDDS Visualization
+##Histogram of all pdds scores
+```{r}
+#Export list of all pdds scores
+#write.csv(pdds_all, "/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Data Desc Queries/PDDS_Query/pdds_all.csv")
+
+mean(pdds_all$score) #mean score of 2.04
+sd(pdds_all$score) #sd of 2.17
+
+ggplot(pdds_all, aes(score)) +
+    geom_histogram(colour="#4d3230", fill="#c2a2a0", bins = 9) +
+    stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-.5) + 
+    theme_minimal() +
+    geom_vline(aes(xintercept=mean(score)), color="#304b4d", linetype="dashed", size=.5) +
+    scale_x_continuous(breaks = seq(0, 9, by=1)) +
+    scale_y_continuous(breaks = seq(0, 6000, by=500)) +
+    labs(title = "All PDDS Scores") + theme(plot.title = element_text(hjust = 0.5)) + xlab("PDDS Score") + ylab("# of Scores")
+
+
+
+```
+
+##Histogram of most recent pdds scores
+```{r}
+most_recent <- pdds_all
+most_recent = aggregate(pdds_all$date,by=list(most_recent$id_participant),max)
+names(most_recent)[1] <- 'id_participant'
+names(most_recent)[2] <- 'date'
+  #merge list of most recent pdds dates with the scores
+most_recent2 = merge(most_recent, pdds_all, by.x=c("id_participant", "date"), by.y=c("id_participant", "date"))
+most_recent2 <- unique(most_recent2)
+
+  #find duplicate PRTs- multiple scores on the same date
+test <- data.frame(table(most_recent2$id_participant))
+test <- test %>% filter(Freq>0)
+  #remove lower score, only 1 per participant, total should be 1921
+most_recent3 <- most_recent2 %>% filter( (!((score==0) & (str_detect(id_participant, "PRT170109")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==1) & (str_detect(id_participant, "PRT170218")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==0) & (str_detect(id_participant, "PRT180558")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==3) & (str_detect(id_participant, "PRT180814")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==0) & (str_detect(id_participant, "PRT191184")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==0) & (str_detect(id_participant, "PRT191202")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==0) & (str_detect(id_participant, "PRT191296")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==1) & (str_detect(id_participant, "PRT191315")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==0) & (str_detect(id_participant, "PRT191580")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==2) & (str_detect(id_participant, "PRT201657")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==1) & (str_detect(id_participant, "PRT212128")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==1) & (str_detect(id_participant, "PRT212258")))))
+most_recent3 <- most_recent3 %>% filter( (!((score==3) & (str_detect(id_participant, "PRT222673")))))
+test <- data.frame(table(most_recent3$id_participant))
+test <- test %>% filter(Freq>0)
+
+mean(most_recent3$score) #mean score of 2.08
+sd(most_recent3$score)
+
+ggplot(most_recent3, aes(score)) +
+    geom_histogram(colour="#4d3230", fill="#c2a2a0", bins = 9) +
+    #stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-.5) + 
+    theme_linedraw() +
+    geom_vline(aes(xintercept=mean(score)), color="#E74C3C", linetype="dashed", size=.5) +
+    scale_x_continuous(breaks = seq(0, 9, by=1)) +
+    scale_y_continuous(
+      breaks = c(0, 250, 500, 750, 1000),
+      labels = c("0", "250", "500", "750", "1000"),
+      limits = c(0, 1000),
+      minor_breaks = seq(0, 1000, by=125)  
+      ) +
+    labs(title = "Most Recent PDDS Scores") + theme(plot.title = element_text(hjust = 0.5)) + xlab("PDDS Score") + ylab("Number of Participants")
+
+#Export list of recent pdds scores
+#ggsave("/Users/jeanninejacokes/Desktop/MS Clinic/pdds_score.png", plot = pdds_score, width = 6.67, height = 4.5, units = "in")
+
+
+```
+
+##Histogram of earliest pdds scores
+```{r}
+earliest <- pdds_all
+earliest = aggregate(pdds_all$date,by=list(earliest$id_participant),min)
+names(earliest)[1] <- 'id_participant'
+names(earliest)[2] <- 'date'
+  #merge list of earliest pdds dates with the scores
+earliest2 = merge(earliest, pdds_all, by.x=c("id_participant", "date"), by.y=c("id_participant", "date"))
+earliest2 <- unique(earliest2)
+
+  #find duplicate PRTs- multiple scores on the same date
+test <- data.frame(table(earliest2$id_participant))
+test <- test %>% filter(Freq>0)
+  #remove lower score, only 1 per participant, total should be 1921
+earliest3 <- earliest2 %>% filter( (!((score==0) & (str_detect(id_participant, "PRT170107")))))
+earliest3 <- earliest3 %>% filter( (!((score==1) & (str_detect(id_participant, "PRT170387")))))
+earliest3 <- earliest3 %>% filter( (!((score==3) & (str_detect(id_participant, "PRT180814")))))
+earliest3 <- earliest3 %>% filter( (!((score==1) & (str_detect(id_participant, "PRT212128")))))
+earliest3 <- earliest3 %>% filter( (!((score==3) & (str_detect(id_participant, "PRT222673")))))
+test <- data.frame(table(earliest3$id_participant))
+test <- test %>% filter(Freq>0)
+
+mean(earliest3$score) #mean score of 1.81
+sd(earliest3$score)
+
+ggplot(earliest3, aes(score)) +
+    geom_histogram(colour="#4d3230", fill="#c2a2a0", bins = 9) +
+    stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-.5) + 
+    theme_minimal() +
+    geom_vline(aes(xintercept=mean(score)), color="#304b4d", linetype="dashed", size=.5) +
+    scale_x_continuous(breaks = seq(0, 9, by=1)) +
+    scale_y_continuous(breaks = seq(0, 6000, by=500)) +
+    labs(title = "Earliest PDDS Scores") + theme(plot.title = element_text(hjust = 0.5)) + xlab("PDDS Score") + ylab("# of Scores")
+
+#Export list of earliest pdds scores
+#write.csv(earliest3, "/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Data Desc Queries/PDDS_Query/pdds_earliest.csv")
+
+
+```
+
+##Minimum two pdds scores
+```{r}
+#Finds list of participants with at least 2 MSRSR scores on separate days
+#Then displays histogram of the days between the two scores
+
+multiple <- data.frame(table(pdds_all$id_participant))
+multiple <- multiple %>% filter(Freq>1)
+names(multiple)[1] <- 'id_participant'
+  #merge list of >1 score with the date and actual scores
+multiple2 <- merge(multiple, pdds_all, by = 'id_participant', all.y = TRUE)
+multiple2 <- multiple2 %>% filter(!is.na(Freq))
+multiple2 <- multiple2[order(multiple2$id_participant, multiple2$date), ]
+
+  #calculate the difference in dates by days, absolute value
+multiple3 <- multiple2 %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(date, default = first(date), order_by = Freq) - date)
+multiple3$diff <- abs(multiple3$diff)
+  #calculate the mean of the difference in dates- any mean that ==0 has only scores from the same day
+test2 <- multiple3 %>%
+  group_by(id_participant) %>%
+  summarise_at(vars(diff), list(mean_days_diff = mean))
+  #remove people w/ mean_days_diff==0
+test2 <- test2 %>% filter(mean_days_diff!=0)
+
+sum(table(unique(test2$id_participant)))
+  #1701 participants w/ 2+ scores on 2+ days
+mean(test2$mean_days_diff) #133.35 days between scores per person
+
+test2$mean_days_diff <- as.numeric(as.character(test2$mean_days_diff))
+ggplot(test2, aes(mean_days_diff)) +
+    geom_histogram(colour="#4d3230", fill="#c2a2a0") +
+    theme_minimal() +
+    geom_vline(aes(xintercept=mean(mean_days_diff)), color="#304b4d", linetype="dashed", size=.5) +
+    scale_y_continuous(breaks = seq(0, 300, by=50)) +
+    scale_x_continuous(breaks = seq(0, 750, by=60)) +
+    labs(title = "Mean Duration Between Scores per Participant") + theme(plot.title = element_text(hjust = 0.5)) + xlab("Duration (days)") + ylab("# of Participants")
+
+```
+
+#PDDS Median
+```{r}
+#Filtering values
+pdds_final <- pdds_all
+pdds_final$year <- year(pdds_final$date)
+pdds_final_summary <- pdds_final %>% 
+  mutate_at(vars(-id_participant), as.numeric) %>%
+  group_by(id_participant, year) %>%
+  dplyr::summarise(pdds_median = floor(median(score)),
+            pdds_num_observations = n()) %>% ungroup()
+    #groups table by participant ID and year, then finds the median value.  So for one person, in 2017, the median is found.
+
+pdds_new <- merge(pdds_final, pdds_final_summary, by = c("id_participant", "year"))
+pdds_new$difference <- pdds_new$score - pdds_new$pdds_median
+    #calculates the difference between each individual score and the median for that year
+#Removing 1.5 x (IQR/2) above or below the median
+pdds_new <- pdds_new %>% filter(!(pdds_new$difference > 3 | pdds_new$difference < -3))
+pdds_new <- pdds_new[,c(1,2,3,4)]
+    #removes values that are more than 3 points off from the median for that participant for that year
+
+pdds_new_summary <- pdds_new %>% 
+  mutate_at(vars(-id_participant), as.numeric) %>%
+  group_by(id_participant, year) %>%
+  dplyr::summarise(pdds_median = floor(median(score)),
+            pdds_num_observations = n()) %>% ungroup()
+  #recalculates the median having removed outliers (values way greater than the median for that year)
+
+pdds_new_summary <- pdds_new_summary %>%
+  group_by(id_participant) %>%
+  mutate(diff = lag(pdds_median, default = first(pdds_median), order_by = year) - pdds_median)
+pdds_new_summary <- as.data.frame(pdds_new_summary)
+
+#export list of all median scores per year
+pdds_all_median <- pdds_new_summary
+#write.csv(pdds_all_median, "/Users/LibbyWalker/Documents/Job Stuff/UPitt/R/Data Desc Queries/PDDS_Query/pdds_all_median.csv")
+
+
+```
+
+#EDSS
+```{r}
+edss <- database[,c("id_participant", "edss_date", "edss_score")]
+edss <- edss %>% filter(!is.na(edss_score))
+write.csv(edss, "edss_all.csv")
+
+hist(edss$edss_score)
+
+```
+
+
+
