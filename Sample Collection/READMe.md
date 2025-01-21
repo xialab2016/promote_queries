@@ -2,7 +2,7 @@
 
 1. Serum
 
-   Version 2: 2024-10-31
+   Version 2: 2025-01-21
 
    We updated the queries to reflect the new diagnosis status classification on REDCap.
 
