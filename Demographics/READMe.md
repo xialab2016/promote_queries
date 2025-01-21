@@ -1,5 +1,13 @@
 # Demographics
 
+Version 4: 2024-11-19
+
+Additional adjustments for new subject group fields in REDCap
+
+Version 2 + 3: 2024-11-11 & 2024-11-12
+
+Adjustments for new subject group fields in REDCap
+
 Version 1: 2024-04-02
 
 Descriptive statistics of the PROMOTE cohort including age, sex, race, ethnicity, disease duration, disease modifying therapy class, disease modifying therapy type, address, and Charleson Comorbidity Index (CCI).
