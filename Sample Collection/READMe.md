@@ -30,6 +30,10 @@
 
 5. PBMC
 
+   Version 2: 2025-01-21
+
+   We updated the queries to reflect the new diagnosis status classification on REDCap.
+   
    Version 1: 2024-04-15
 
    Finds list of participants with PBMC sample and their demographics
@@ -38,7 +42,7 @@
 
    Output: Table of demographic summary for all PROMOTE participants with a PBMC sample, CSV file containing all participants with DNA sample and their demographics
    
-6. DNA
+7. DNA
 
    Version 2: 2025-01-21
 
