@@ -36,6 +36,10 @@
    
 6. DNA
 
+   Version 2: 2025-01-21
+
+   We updated the queries to reflect the new diagnosis status classification on REDCap.
+
    Version 1: 2024-04-02
 
    Finds list of participants with DNA sample and their demographics
@@ -44,7 +48,7 @@
 
    Output: Table of demographic summary for all PROMOTE participants with a DNA sample, CSV file containing all participants with DNA sample and their demographics
    
-7. Stool
+8. Stool
 
    Version 1: 2024-04-16
 
@@ -54,7 +58,7 @@
 
    Output: Table with statistics regarding stool sample collection, CSV file with demographic information for participants with stool samples, CSV file with subtypes for all PROMOTE participants with stool sample, CSV file with all stool samples for which a subtype was not provided (NP), CSV file with number of stool samples per participants and the amount of time elapses between longitudinal samples (for same participant), CSV file for all stool samples donated by cohabs
    
-8. Cerebrospinal fluid (CSF)
+9. Cerebrospinal fluid (CSF)
 
    Version 1: 2024-04-02
 
@@ -64,7 +68,7 @@
 
    Output: Table of demographic summary of participants who have donated CSF samples, CSV file containing all CSF sample dates with the demographics of the donating participant.
 
-9. Discontinuation Query
+10. Discontinuation Query
 
    Version 1: 2024-06-05
 
