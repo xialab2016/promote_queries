@@ -2,6 +2,10 @@
 
 1. Patient-determined disease steps (PDDS)
 
+   Version 2: 2025-01-21
+
+   Adjusts queries for additional PDDS fields that have been added to REDCap (30 PDDS score fields now available)
+   
    Version 1: 2024-03-21
 
    Finds PDDS values and median scores per year for all PROMOTE participants and EDSS values stored in the PROMOTEDatabase.
@@ -10,7 +14,7 @@
 
    Output: Histogram of all PDDS scores, earliest PDDS scores, and most recent PDDS scores. CSV files of all PDDS scores, earliest PDDS scores, most recent PDDS scores, median PDDS score, and all EDSS scores.
 
-2. Multiple sclerosis rating scale, revised (MSRS-R)
+3. Multiple sclerosis rating scale, revised (MSRS-R)
 
    Version 1: 2024-04-03
 
