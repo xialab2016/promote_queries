@@ -10,6 +10,14 @@ Output: Table 1 demographics of entire PROMOTE cohort, CSV file with demographic
 
 # First Degree Relative Query
 
+Version 3: 2025-01-21
+
+Minor revisions made by Megan to fix dplyr package glitch
+
+Version 2: 2024-11-15
+
+Minor revisions made by Shruthi 
+
 Version 1: 2024-05-28
 
 Queries all sources to identify PROMOTE participants that are first degree relatives of someone with MS.
